@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "localweather",
+  "version": "${version}",
+  "name": "Localized Weather",
+  "description": "Per-chunk localized weather zones with biome-aware rules and smooth transitions.",
+  "authors": ["LocalWeatherMod"],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/localweather/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["net.fentbusgaming.localweather.LocalWeatherMod"],
+    "client": ["net.fentbusgaming.localweather.LocalWeatherClient"]
+  },
+  "mixins": [
+    "localweather.mixins.json",
+    {
+      "config": "localweather.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.5",
+    "fabric-api": "*",
+    "minecraft": ">=1.21.9",
+    "java": ">=21"
+  },
+  "suggests": {
+    "better-clouds": "*"
+  }
+}
