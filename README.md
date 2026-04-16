@@ -16,18 +16,19 @@ A Fabric mod that replaces Minecraft's global weather system with **per-zone loc
 - Minecraft 1.21.9+
 - Fabric Loader 0.19.2+
 - Fabric API
+- [Better Clouds](https://modrinth.com/mod/better-clouds)
+- [YACL](https://modrinth.com/mod/yacl) (required by Better Clouds)
 
 ## Optional Dependencies
 
-- [Better Clouds](https://modrinth.com/mod/better-clouds) — enhanced cloud visuals that integrate with localized weather
-- [YACL](https://modrinth.com/mod/yacl) — config library (required by Better Clouds)
 - [Mod Menu](https://modrinth.com/mod/modmenu) — in-game mod configuration
 
 ## Installation
 
 1. Install [Fabric Loader](https://fabricmc.net/use/installer/) and [Fabric API](https://modrinth.com/mod/fabric-api)
-2. Drop the mod jar into your `mods` folder
-3. Launch the game
+2. Install [Better Clouds](https://modrinth.com/mod/better-clouds) and [YACL](https://modrinth.com/mod/yacl)
+3. Drop the mod jar into your `mods` folder
+4. Launch the game
 
 ## How It Works
 
