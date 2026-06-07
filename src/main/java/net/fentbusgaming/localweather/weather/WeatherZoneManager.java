@@ -317,4 +317,23 @@ public class WeatherZoneManager {
         WORLD_ZONES.remove(worldKey);
         DIRTY_ZONES.remove(worldKey);
     }
+
+    /**
+     * Force a zone to a specific weather state immediately.
+     */
+    public static void forceWeatherAt(ServerWorld world, int zoneX, int zoneZ, WeatherZone.WeatherType weather, int duration) {
+        WeatherZone zone = getOrCreateZone(world, zoneX, zoneZ);
+        zone.forceWeather(weather, duration);
+        long zoneKey = pack(zoneX, zoneZ);
+        markDirty(world.getRegistryKey(), zoneKey);
+
+        for (ServerPlayerEntity player : world.getPlayers()) {
+            ChunkPos chunkPos = player.getChunkPos();
+            int pZoneX = chunkPos.x >> 4;
+            int pZoneZ = chunkPos.z >> 4;
+            if (Math.abs(pZoneX - zoneX) <= 1 && Math.abs(pZoneZ - zoneZ) <= 1) {
+                WeatherPackets.sendWeatherUpdate(player, zone);
+            }
+        }
+    }
 }

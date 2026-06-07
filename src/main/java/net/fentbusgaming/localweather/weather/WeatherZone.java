@@ -113,6 +113,16 @@ public class WeatherZone {
     }
 
     /**
+     * Instantly replace the zone weather and restart its duration timer.
+     */
+    public void forceWeather(WeatherType weather, int duration) {
+        currentWeather = weather;
+        targetWeather = weather;
+        transitionProgress = 1.0f;
+        weatherDuration = duration;
+    }
+
+    /**
      * For network sync: the "effective" weather type a client should render.
      * During a transition the target is sent so the client starts transitioning.
      */

@@ -3,6 +3,7 @@ package net.fentbusgaming.localweather.mixin;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fentbusgaming.localweather.network.ClientWeatherHandler;
+import net.fentbusgaming.localweather.weather.WeatherZone;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.SkyRendering;
 import net.minecraft.client.render.state.SkyRenderState;
@@ -23,6 +24,7 @@ public abstract class SkyColorMixin {
         float rain = ClientWeatherHandler.getRainDarkening();
         float thunder = ClientWeatherHandler.getThunderDarkening();
         float proximity = ClientWeatherHandler.getStormProximityDarkening();
+        WeatherZone.WeatherType currentWeather = ClientWeatherHandler.getCurrentZoneWeather();
         float factor = Math.max(rain, proximity);
         
         int color = state.skyColor;
@@ -51,11 +53,19 @@ public abstract class SkyColorMixin {
             b = b + (weatherB - b) * factor;
         }
         
-        if (thunder > 0.15f) {
-            float auroraGlow = (float) Math.sin(world.getTime() * 0.04f) * 0.08f;
-            auroraGlow = Math.max(0f, auroraGlow) * thunder;
+        if (thunder > 0.15f || currentWeather == WeatherZone.WeatherType.HAIL) {
+            float time = world.getTime() + tickDelta;
+            float auroraWave = (float) ((Math.sin(time * 0.035f) + Math.sin(time * 0.012f + 1.7f)) * 0.5f);
+            float auroraGlow = Math.max(0f, auroraWave) * (0.06f + thunder * 0.12f);
             g += auroraGlow;
-            b += auroraGlow * 1.2f;
+            b += auroraGlow * 1.35f;
+
+            if (currentWeather == WeatherZone.WeatherType.HAIL) {
+                float hailGlow = 0.03f + (float) Math.max(0f, Math.sin(time * 0.02f + 0.9f)) * 0.025f;
+                r += hailGlow * 0.45f;
+                g += hailGlow * 0.65f;
+                b += hailGlow;
+            }
         }
 
         state.skyColor = (0xFF << 24)

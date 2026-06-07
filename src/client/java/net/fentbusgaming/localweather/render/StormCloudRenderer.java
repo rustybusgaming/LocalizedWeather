@@ -87,6 +87,10 @@ public class StormCloudRenderer {
     }
 
     private static void renderInternal(MinecraftClient client, MatrixStack matrices, float tickDelta, Vec3d cam, VertexConsumerProvider consumers) {
+        if (ClientWeatherHandler.getCurrentZoneWeather() == WeatherZone.WeatherType.CLEAR) {
+            return;
+        }
+
         Map<Long, ClientWeatherHandler.ZoneState> zones = ClientWeatherHandler.getZoneStates();
         if (zones.isEmpty()) return;
 
