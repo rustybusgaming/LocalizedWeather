@@ -222,7 +222,8 @@ public final class ClientWeatherHandler {
         if (state == null) return 0f;
         boolean wet = state.weather == WeatherZone.WeatherType.RAIN
                 || state.weather == WeatherZone.WeatherType.THUNDER
-                || state.weather == WeatherZone.WeatherType.SNOW;
+                || state.weather == WeatherZone.WeatherType.SNOW
+                || state.weather == WeatherZone.WeatherType.HAIL;
         return wet ? state.transitionProgress : 0f;
     }
 

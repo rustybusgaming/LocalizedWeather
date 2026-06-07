@@ -96,7 +96,8 @@ public final class LocalWeatherAPI {
         WeatherZone.WeatherType weather = getWeatherAt(world, pos);
         return weather == WeatherZone.WeatherType.RAIN
                 || weather == WeatherZone.WeatherType.THUNDER
-                || weather == WeatherZone.WeatherType.SNOW;
+                || weather == WeatherZone.WeatherType.SNOW
+                || weather == WeatherZone.WeatherType.HAIL;
     }
 
     /**
@@ -108,6 +109,17 @@ public final class LocalWeatherAPI {
      */
     public static boolean isThunderingAt(ServerWorld world, BlockPos pos) {
         return getWeatherAt(world, pos) == WeatherZone.WeatherType.THUNDER;
+    }
+
+    /**
+     * Check if there is hail at a specific position.
+     *
+     * @param world the server world
+     * @param pos   the block position
+     * @return true if hail is active at this position
+     */
+    public static boolean isHailingAt(ServerWorld world, BlockPos pos) {
+        return getWeatherAt(world, pos) == WeatherZone.WeatherType.HAIL;
     }
 
     /**

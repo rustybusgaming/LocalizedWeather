@@ -46,10 +46,12 @@ public class StormCloudRenderer {
     private static final float COVERAGE_RAIN = 0.55f;
     private static final float COVERAGE_THUNDER = 0.70f;
     private static final float COVERAGE_SNOW = 0.50f;
+    private static final float COVERAGE_HAIL = 0.62f;
 
     private static final float ALPHA_RAIN = 0.65f;
     private static final float ALPHA_THUNDER = 0.82f;
     private static final float ALPHA_SNOW = 0.55f;
+    private static final float ALPHA_HAIL = 0.74f;
 
     private static final int CLOUD_LAYERS = 3;
     private static final float[] CLOUD_LAYER_HEIGHT = {0f, 4.8f, 9.4f};
@@ -125,6 +127,7 @@ public class StormCloudRenderer {
             float weatherHeightOffset = switch (s.weather) {
                 case THUNDER -> -10f;
                 case SNOW -> 10f;
+                case HAIL -> -4f;
                 default -> 0f;
             };
 
@@ -242,6 +245,7 @@ public class StormCloudRenderer {
         return switch (weather) {
             case THUNDER -> new WeatherRenderConfig(0x2A, 0x2A, 0x32, COVERAGE_THUNDER, ALPHA_THUNDER);
             case SNOW -> new WeatherRenderConfig(0xC2, 0xC7, 0xCF, COVERAGE_SNOW, ALPHA_SNOW);
+            case HAIL -> new WeatherRenderConfig(0x54, 0x5D, 0x68, COVERAGE_HAIL, ALPHA_HAIL);
             default -> new WeatherRenderConfig(0x6A, 0x6F, 0x78, COVERAGE_RAIN, ALPHA_RAIN);
         };
     }

@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  *
  * Only overrides for SNOW zones (forces snow particles regardless of biome).
  * For CLEAR, we rely on rainGradient being 0 to naturally suppress particles.
- * For RAIN/THUNDER, vanilla decides based on biome temperature.
+ * For RAIN/THUNDER/HAIL, vanilla decides based on biome temperature.
  */
 @Environment(EnvType.CLIENT)
 @Mixin(Biome.class)
@@ -38,7 +38,7 @@ public abstract class ClientWorldMixin {
         // Only override for SNOW — force snow particles regardless of biome temp.
         // CLEAR is handled by rainGradient being 0 (no need to override here,
         // doing so would kill rain particles from neighboring zones too).
-        // RAIN / THUNDER: let vanilla decide based on biome.
+        // RAIN / THUNDER / HAIL: let vanilla decide based on biome.
         if (zone == WeatherZone.WeatherType.SNOW) {
             cir.setReturnValue(Biome.Precipitation.SNOW);
         }
