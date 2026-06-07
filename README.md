@@ -2,6 +2,12 @@
 
 A Fabric mod that replaces Minecraft's global weather system with **per-zone localized weather**. Rain, snow, hail, and thunderstorms happen independently across the world, with smooth transitions at zone boundaries and Minecraft-style storm clouds.
 
+## Loader Support
+
+- **Fabric** — primary supported loader.
+- **Quilt** — supported through Quilt Loader's Fabric mod compatibility. Use the Fabric build with Fabric API available in the Quilt instance.
+- **NeoForge** — not included in the current jar. NeoForge needs a dedicated platform port because this mod currently uses Fabric entrypoints, Fabric API networking/events, and Fabric render callbacks.
+
 ## Features
 
 - **Localized weather zones** — 256×256 block zones each have their own weather state
@@ -15,7 +21,7 @@ A Fabric mod that replaces Minecraft's global weather system with **per-zone loc
 ## Requirements
 
 - Minecraft 1.21.9+
-- Fabric Loader 0.19.2+
+- Fabric Loader 0.19.2+ or Quilt Loader with Fabric mod compatibility
 - Fabric API
 - [Better Clouds](https://modrinth.com/mod/better-clouds)
 - [YACL](https://modrinth.com/mod/yacl) (required by Better Clouds)
@@ -26,7 +32,7 @@ A Fabric mod that replaces Minecraft's global weather system with **per-zone loc
 
 ## Installation
 
-1. Install [Fabric Loader](https://fabricmc.net/use/installer/) and [Fabric API](https://modrinth.com/mod/fabric-api)
+1. Install [Fabric Loader](https://fabricmc.net/use/installer/) or Quilt Loader, plus [Fabric API](https://modrinth.com/mod/fabric-api)
 2. Install [Better Clouds](https://modrinth.com/mod/better-clouds) and [YACL](https://modrinth.com/mod/yacl)
 3. Drop the mod jar into your `mods` folder
 4. Launch the game

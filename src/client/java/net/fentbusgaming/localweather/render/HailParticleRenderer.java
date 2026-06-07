@@ -25,10 +25,13 @@ import java.util.Map;
 public class HailParticleRenderer {
 
     private static final int ZONE_SIZE = WeatherZoneManager.CHUNKS_PER_ZONE * 16;
-    private static final int PARTICLE_GRID_SIZE = 64;
-    private static final float PARTICLE_SIZE = 0.15f;
-    private static final float PARTICLE_FALL_SPEED = 0.3f;
+    private static final int PARTICLE_GRID_SIZE = 48;
+    private static final float PARTICLE_SIZE = 0.12f;
+    private static final float PARTICLE_FALL_SPEED = 1.1f;
+    private static final float PARTICLE_LENGTH = 0.55f;
+    private static final float PARTICLE_DRIFT = 0.06f;
     private static final float PARTICLE_SHIMMER = 0.05f;
+    private static final float MAX_DIST = ZONE_SIZE * 3.5f;
 
     public static void register() {
         WorldRenderEvents.AFTER_ENTITIES.register(HailParticleRenderer::render);
@@ -65,6 +68,7 @@ public class HailParticleRenderer {
                                           Vec3d cam, long worldTime) {
         float zoneX = zone.zoneX * ZONE_SIZE;
         float zoneZ = zone.zoneZ * ZONE_SIZE;
+        float intensity = zone.transitionProgress;
 
         for (int px = 0; px < PARTICLE_GRID_SIZE; px++) {
             for (int pz = 0; pz < PARTICLE_GRID_SIZE; pz++) {
@@ -73,29 +77,30 @@ public class HailParticleRenderer {
 
                 float particleX = zoneX + (px / (float) PARTICLE_GRID_SIZE) * ZONE_SIZE;
                 float particleZ = zoneZ + (pz / (float) PARTICLE_GRID_SIZE) * ZONE_SIZE;
-                float particleY = 200 + (hash & 63);
+                float baseY = 190 + (hash & 31);
 
                 float dx = (float) (particleX - cam.x);
                 float dz = (float) (particleZ - cam.z);
                 double distSq = dx * dx + dz * dz;
-                if (distSq > 256 * 256) continue;
+                if (distSq > MAX_DIST * MAX_DIST) continue;
 
-                float fall = (worldTime * PARTICLE_FALL_SPEED) % 100;
-                float yOffset = fall + ((hash >> 8) & 31) * 0.1f;
-                float y = (float) (particleY - yOffset - cam.y);
+                float fallPhase = (worldTime * PARTICLE_FALL_SPEED + hash * 0.001f) % 80f;
+                float yOffset = fallPhase * (0.8f + ((hash >> 8) & 7) * 0.04f);
+                float y = (float) (baseY - yOffset - cam.y);
 
+                float drift = (float) Math.sin(worldTime * 0.025f + hash * 0.0015f) * PARTICLE_DRIFT;
                 float shimmer = (float) Math.sin(worldTime * 0.05f + hash * 0.001f) * PARTICLE_SHIMMER;
                 float xShimmer = (float) Math.cos(worldTime * 0.04f + hash * 0.002f) * PARTICLE_SHIMMER;
 
                 float x1 = dx - PARTICLE_SIZE + xShimmer;
-                float z1 = dz - PARTICLE_SIZE;
+                float z1 = dz - PARTICLE_SIZE + drift;
                 float x2 = dx + PARTICLE_SIZE + xShimmer;
-                float z2 = dz + PARTICLE_SIZE;
+                float z2 = dz + PARTICLE_SIZE + drift;
                 float yBot = y;
-                float yTop = y + PARTICLE_SIZE + shimmer;
+                float yTop = y + PARTICLE_LENGTH + shimmer;
 
-                int alpha = (int) (200 * zone.transitionProgress);
-                int bright = 200 + (hash & 55);
+                int alpha = (int) (170 * intensity);
+                int bright = 210 + (hash & 31);
 
                 buffer.vertex(mat, x1, yBot, z1).color(bright, bright, 255, alpha);
                 buffer.vertex(mat, x1, yTop, z1).color(bright, bright, 255, alpha);

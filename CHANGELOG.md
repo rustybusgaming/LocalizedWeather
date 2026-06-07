@@ -6,6 +6,10 @@ All notable changes to Localized Weather will be documented in this file.
 
 ### Added
 - Hail weather zones with custom falling hail particles, storm clouds, ambient audio, and public API support
+- Quilt loader compatibility guidance for running the Fabric build on Quilt
+
+### Notes
+- NeoForge support requires a dedicated loader port; the current jar remains Fabric/Quilt-compatible only
 
 ## [1.1.2] - 2026-04-16
 
