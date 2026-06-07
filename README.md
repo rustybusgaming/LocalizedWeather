@@ -1,11 +1,12 @@
 # Localized Weather
 
-A Fabric mod that replaces Minecraft's global weather system with **per-zone localized weather**. Rain, snow, and thunderstorms happen independently across the world, with smooth transitions at zone boundaries and Minecraft-style storm clouds.
+A Fabric mod that replaces Minecraft's global weather system with **per-zone localized weather**. Rain, snow, hail, and thunderstorms happen independently across the world, with smooth transitions at zone boundaries and Minecraft-style storm clouds.
 
 ## Features
 
 - **Localized weather zones** — 256×256 block zones each have their own weather state
 - **Biome-aware rules** — deserts stay dry, snowy biomes get snow, etc.
+- **Hailstorms** — occasional icy hail squalls with custom falling hail particles
 - **Smooth transitions** — rain/fog/sky color blend seamlessly across zone boundaries
 - **Storm clouds** — blocky, Minecraft-style 3D cloud layers appear over storm zones, visible from a distance
 - **Directional darkening** — sky, fog, and clouds darken toward approaching storms
@@ -35,7 +36,7 @@ A Fabric mod that replaces Minecraft's global weather system with **per-zone loc
 Weather happens automatically — no commands needed. Each 256×256 block zone rolls its own weather independently:
 
 - **Clear skies** last 10 minutes to 2.5 hours before a chance of weather
-- **Rain and storms** last 10–20 minutes before clearing
+- **Rain, hail, and storms** last 10–20 minutes before clearing
 - **Biome rules** kick in automatically — deserts stay dry, cold biomes get snow instead of rain
 - **Transitions** blend smoothly over 20 seconds at zone boundaries
 - **Storm clouds** appear as blocky 3D cloud layers over rainy/stormy zones, visible from far away

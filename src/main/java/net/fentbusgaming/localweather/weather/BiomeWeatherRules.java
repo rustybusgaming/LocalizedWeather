@@ -12,12 +12,12 @@ public final class BiomeWeatherRules {
     private BiomeWeatherRules() {}
 
     /**
-     * Given a biome and a desired "wet" weather event (RAIN or THUNDER),
+     * Given a biome and a desired "wet" weather event (RAIN, THUNDER, or HAIL),
      * return the weather type that actually makes sense for this biome.
      *
      * <ul>
      *   <li>Hot / dry biomes → CLEAR (biome blocks precipitation)</li>
-     *   <li>Cold / snowy biomes → SNOW</li>
+     *   <li>Cold / snowy biomes → SNOW for rain, while hail can still occur</li>
      *   <li>Everything else → the requested type unchanged</li>
      * </ul>
      */

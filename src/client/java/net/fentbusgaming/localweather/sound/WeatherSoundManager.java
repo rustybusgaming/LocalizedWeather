@@ -102,6 +102,7 @@ public class WeatherSoundManager {
             if (state.weather == WeatherZone.WeatherType.CLEAR) continue;
             if (state.weather == WeatherZone.WeatherType.SNOW) continue;
             if (state.transitionProgress < 0.1f) continue;
+            boolean hail = state.weather == WeatherZone.WeatherType.HAIL;
 
             double zoneCX = (state.zoneX + 0.5) * ZONE_SIZE;
             double zoneCZ = (state.zoneZ + 0.5) * ZONE_SIZE;
@@ -121,7 +122,7 @@ public class WeatherSoundManager {
                 soundX = playerX + Math.cos(angle) * radius;
                 soundZ = playerZ + Math.sin(angle) * radius;
                 soundY = playerY + RANDOM.nextDouble() * 8;
-                volume = 0.15f + state.transitionProgress * 0.25f;
+                volume = 0.15f + state.transitionProgress * (hail ? 0.18f : 0.25f);
             } else {
                 // --- Zone is to one side: directional stereo ---
                 double dirX = dx / dist;
@@ -138,7 +139,7 @@ public class WeatherSoundManager {
                 soundY = playerY + 5 + RANDOM.nextDouble() * 10;
 
                 float distFactor = 1.0f - (float) (dist / MAX_RAIN_DIST);
-                volume = (0.05f + distFactor * 0.2f) * state.transitionProgress;
+                volume = (0.05f + distFactor * (hail ? 0.15f : 0.2f)) * state.transitionProgress;
             }
 
             if (volume < 0.02f) continue;
@@ -146,7 +147,9 @@ public class WeatherSoundManager {
             // Random chance to thin out sounds for a natural feel
             if (RANDOM.nextFloat() > 0.35f + volume) continue;
 
-            float pitch = 0.85f + RANDOM.nextFloat() * 0.25f;
+            float pitch = hail
+                    ? 1.25f + RANDOM.nextFloat() * 0.25f
+                    : 0.85f + RANDOM.nextFloat() * 0.25f;
 
             world.playSoundClient(soundX, soundY, soundZ,
                     SoundEvents.WEATHER_RAIN, SoundCategory.WEATHER,

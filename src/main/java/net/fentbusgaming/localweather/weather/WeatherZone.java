@@ -10,7 +10,8 @@ public class WeatherZone {
         CLEAR,
         RAIN,
         THUNDER,
-        SNOW
+        SNOW,
+        HAIL
     }
 
     /** Zone grid coordinates (each unit = 16 chunks = 256 blocks). */

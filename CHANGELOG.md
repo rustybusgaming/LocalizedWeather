@@ -2,6 +2,11 @@
 
 All notable changes to Localized Weather will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- Hail weather zones with custom falling hail particles, storm clouds, ambient audio, and public API support
+
 ## [1.1.2] - 2026-04-16
 
 ### Added

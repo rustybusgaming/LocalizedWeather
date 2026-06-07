@@ -148,10 +148,7 @@ public class WeatherZoneManager {
         if (RANDOM.nextFloat() < 0.70f) {
             return WeatherZone.WeatherType.CLEAR;
         }
-        WeatherZone.WeatherType wet = RANDOM.nextFloat() < 0.15f
-                ? WeatherZone.WeatherType.THUNDER
-                : WeatherZone.WeatherType.RAIN;
-        return applyBiomeRules(world, zoneX, zoneZ, wet);
+        return applyBiomeRules(world, zoneX, zoneZ, randomWetWeather(0.15f, 0.12f));
     }
 
     private static WeatherZone.WeatherType pickNewWeather(
@@ -181,10 +178,7 @@ public class WeatherZoneManager {
             // Was clear — chance of rain/thunder
             float roll = RANDOM.nextFloat();
             if (roll < 0.20f) {
-                WeatherZone.WeatherType wet = roll < 0.04f
-                        ? WeatherZone.WeatherType.THUNDER
-                        : WeatherZone.WeatherType.RAIN;
-                return applyBiomeRules(world, zoneX, zoneZ, wet);
+                return applyBiomeRules(world, zoneX, zoneZ, randomWetWeather(0.20f, 0.10f));
             }
             return WeatherZone.WeatherType.CLEAR;
         } else {
@@ -193,11 +187,19 @@ public class WeatherZoneManager {
                 return WeatherZone.WeatherType.CLEAR;
             }
             // Stay wet or escalate to thunder
-            WeatherZone.WeatherType wet = RANDOM.nextFloat() < 0.20f
-                    ? WeatherZone.WeatherType.THUNDER
-                    : WeatherZone.WeatherType.RAIN;
-            return applyBiomeRules(world, zoneX, zoneZ, wet);
+            return applyBiomeRules(world, zoneX, zoneZ, randomWetWeather(0.20f, 0.15f));
         }
+    }
+
+    private static WeatherZone.WeatherType randomWetWeather(float thunderChance, float hailChance) {
+        float roll = RANDOM.nextFloat();
+        if (roll < thunderChance) {
+            return WeatherZone.WeatherType.THUNDER;
+        }
+        if (roll < thunderChance + hailChance) {
+            return WeatherZone.WeatherType.HAIL;
+        }
+        return WeatherZone.WeatherType.RAIN;
     }
 
     /**

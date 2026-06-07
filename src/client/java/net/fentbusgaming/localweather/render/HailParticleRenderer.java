@@ -3,8 +3,10 @@ package net.fentbusgaming.localweather.render;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.fentbusgaming.localweather.network.ClientWeatherHandler;
 import net.fentbusgaming.localweather.weather.WeatherZone;
+import net.fentbusgaming.localweather.weather.WeatherZoneManager;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
@@ -16,25 +18,30 @@ import org.joml.Matrix4f;
 import java.util.Map;
 
 /**
- * Renders hail particles (ice crystals) during snow weather.
+ * Renders hail particles (ice crystals) during hail weather.
  * Uses deterministic hash-based spawning so particles are consistent across frames.
  */
 @Environment(EnvType.CLIENT)
 public class HailParticleRenderer {
 
+    private static final int ZONE_SIZE = WeatherZoneManager.CHUNKS_PER_ZONE * 16;
     private static final int PARTICLE_GRID_SIZE = 64;
     private static final float PARTICLE_SIZE = 0.15f;
     private static final float PARTICLE_FALL_SPEED = 0.3f;
     private static final float PARTICLE_SHIMMER = 0.05f;
+
+    public static void register() {
+        WorldRenderEvents.AFTER_ENTITIES.register(HailParticleRenderer::render);
+    }
 
     public static void render(WorldRenderContext context) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.world == null) return;
 
         Map<Long, ClientWeatherHandler.ZoneState> zones = ClientWeatherHandler.getZoneStates();
-        boolean anySnow = zones.values().stream()
-                .anyMatch(z -> z.weather == WeatherZone.WeatherType.SNOW && z.transitionProgress > 0.1f);
-        if (!anySnow) return;
+        boolean anyHail = zones.values().stream()
+                .anyMatch(z -> z.weather == WeatherZone.WeatherType.HAIL && z.transitionProgress > 0.1f);
+        if (!anyHail) return;
 
         Vec3d cam = client.gameRenderer.getCamera().getCameraPos();
         MatrixStack matrices = context.matrices();
@@ -43,10 +50,10 @@ public class HailParticleRenderer {
 
         matrices.push();
         Matrix4f mat = matrices.peek().getPositionMatrix();
-        VertexConsumer buffer = consumers.getBuffer(RenderLayers.getEntityEffect());
+        VertexConsumer buffer = consumers.getBuffer(RenderLayers.debugQuads());
 
         for (ClientWeatherHandler.ZoneState zone : zones.values()) {
-            if (zone.weather != WeatherZone.WeatherType.SNOW || zone.transitionProgress < 0.1f) continue;
+            if (zone.weather != WeatherZone.WeatherType.HAIL || zone.transitionProgress < 0.1f) continue;
 
             renderHailInZone(mat, buffer, zone, cam, client.world.getTime());
         }
@@ -56,17 +63,16 @@ public class HailParticleRenderer {
 
     private static void renderHailInZone(Matrix4f mat, VertexConsumer buffer, ClientWeatherHandler.ZoneState zone,
                                           Vec3d cam, long worldTime) {
-        int zoneSize = 256;
-        float zoneX = zone.zoneX * zoneSize;
-        float zoneZ = zone.zoneZ * zoneSize;
+        float zoneX = zone.zoneX * ZONE_SIZE;
+        float zoneZ = zone.zoneZ * ZONE_SIZE;
 
         for (int px = 0; px < PARTICLE_GRID_SIZE; px++) {
             for (int pz = 0; pz < PARTICLE_GRID_SIZE; pz++) {
                 long seed = ((long) zone.zoneX << 32) | (zone.zoneZ & 0xFFFFFFFFL);
                 int hash = hashParticle(px, pz, (int) seed);
 
-                float particleX = zoneX + (px / (float) PARTICLE_GRID_SIZE) * zoneSize;
-                float particleZ = zoneZ + (pz / (float) PARTICLE_GRID_SIZE) * zoneSize;
+                float particleX = zoneX + (px / (float) PARTICLE_GRID_SIZE) * ZONE_SIZE;
+                float particleZ = zoneZ + (pz / (float) PARTICLE_GRID_SIZE) * ZONE_SIZE;
                 float particleY = 200 + (hash & 63);
 
                 float dx = (float) (particleX - cam.x);
