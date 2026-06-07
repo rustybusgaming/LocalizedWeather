@@ -1,0 +1,108 @@
+package net.fentbusgaming.localweather.render;
+
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fentbusgaming.localweather.network.ClientWeatherHandler;
+import net.fentbusgaming.localweather.weather.WeatherZone;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.RenderLayers;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.Vec3d;
+import org.joml.Matrix4f;
+
+import java.util.Map;
+
+/**
+ * Renders hail particles (ice crystals) during snow weather.
+ * Uses deterministic hash-based spawning so particles are consistent across frames.
+ */
+@Environment(EnvType.CLIENT)
+public class HailParticleRenderer {
+
+    private static final int PARTICLE_GRID_SIZE = 64;
+    private static final float PARTICLE_SIZE = 0.15f;
+    private static final float PARTICLE_FALL_SPEED = 0.3f;
+    private static final float PARTICLE_SHIMMER = 0.05f;
+
+    public static void render(WorldRenderContext context) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.world == null) return;
+
+        Map<Long, ClientWeatherHandler.ZoneState> zones = ClientWeatherHandler.getZoneStates();
+        boolean anySnow = zones.values().stream()
+                .anyMatch(z -> z.weather == WeatherZone.WeatherType.SNOW && z.transitionProgress > 0.1f);
+        if (!anySnow) return;
+
+        Vec3d cam = client.gameRenderer.getCamera().getCameraPos();
+        MatrixStack matrices = context.matrices();
+        VertexConsumerProvider consumers = context.consumers();
+        if (consumers == null) return;
+
+        matrices.push();
+        Matrix4f mat = matrices.peek().getPositionMatrix();
+        VertexConsumer buffer = consumers.getBuffer(RenderLayers.getEntityEffect());
+
+        for (ClientWeatherHandler.ZoneState zone : zones.values()) {
+            if (zone.weather != WeatherZone.WeatherType.SNOW || zone.transitionProgress < 0.1f) continue;
+
+            renderHailInZone(mat, buffer, zone, cam, client.world.getTime());
+        }
+
+        matrices.pop();
+    }
+
+    private static void renderHailInZone(Matrix4f mat, VertexConsumer buffer, ClientWeatherHandler.ZoneState zone,
+                                          Vec3d cam, long worldTime) {
+        int zoneSize = 256;
+        float zoneX = zone.zoneX * zoneSize;
+        float zoneZ = zone.zoneZ * zoneSize;
+
+        for (int px = 0; px < PARTICLE_GRID_SIZE; px++) {
+            for (int pz = 0; pz < PARTICLE_GRID_SIZE; pz++) {
+                long seed = ((long) zone.zoneX << 32) | (zone.zoneZ & 0xFFFFFFFFL);
+                int hash = hashParticle(px, pz, (int) seed);
+
+                float particleX = zoneX + (px / (float) PARTICLE_GRID_SIZE) * zoneSize;
+                float particleZ = zoneZ + (pz / (float) PARTICLE_GRID_SIZE) * zoneSize;
+                float particleY = 200 + (hash & 63);
+
+                float dx = (float) (particleX - cam.x);
+                float dz = (float) (particleZ - cam.z);
+                double distSq = dx * dx + dz * dz;
+                if (distSq > 256 * 256) continue;
+
+                float fall = (worldTime * PARTICLE_FALL_SPEED) % 100;
+                float yOffset = fall + ((hash >> 8) & 31) * 0.1f;
+                float y = (float) (particleY - yOffset - cam.y);
+
+                float shimmer = (float) Math.sin(worldTime * 0.05f + hash * 0.001f) * PARTICLE_SHIMMER;
+                float xShimmer = (float) Math.cos(worldTime * 0.04f + hash * 0.002f) * PARTICLE_SHIMMER;
+
+                float x1 = dx - PARTICLE_SIZE + xShimmer;
+                float z1 = dz - PARTICLE_SIZE;
+                float x2 = dx + PARTICLE_SIZE + xShimmer;
+                float z2 = dz + PARTICLE_SIZE;
+                float yBot = y;
+                float yTop = y + PARTICLE_SIZE + shimmer;
+
+                int alpha = (int) (200 * zone.transitionProgress);
+                int bright = 200 + (hash & 55);
+
+                buffer.vertex(mat, x1, yBot, z1).color(bright, bright, 255, alpha);
+                buffer.vertex(mat, x1, yTop, z1).color(bright, bright, 255, alpha);
+                buffer.vertex(mat, x2, yTop, z1).color(bright, bright, 255, alpha);
+                buffer.vertex(mat, x2, yBot, z1).color(bright, bright, 255, alpha);
+            }
+        }
+    }
+
+    private static int hashParticle(int x, int z, int seed) {
+        int h = x * 73856093 ^ z * 19349663 ^ seed * 83492791;
+        h = (h ^ (h >> 13)) * 0x9e3779b9;
+        h = h ^ (h >> 16);
+        return h;
+    }
+}

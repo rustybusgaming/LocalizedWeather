@@ -24,21 +24,39 @@ public abstract class SkyColorMixin {
         float thunder = ClientWeatherHandler.getThunderDarkening();
         float proximity = ClientWeatherHandler.getStormProximityDarkening();
         float factor = Math.max(rain, proximity);
-        if (factor < 0.01f) return;
-
+        
         int color = state.skyColor;
         float r = ((color >> 16) & 0xFF) / 255.0f;
         float g = ((color >> 8) & 0xFF) / 255.0f;
         float b = (color & 0xFF) / 255.0f;
 
-        // Overcast sky: grey. Thunder sky: very dark grey.
-        float stormR = 0.55f - thunder * 0.25f;
-        float stormG = 0.57f - thunder * 0.27f;
-        float stormB = 0.60f - thunder * 0.25f;
-
-        r = r + (stormR - r) * factor;
-        g = g + (stormG - g) * factor;
-        b = b + (stormB - b) * factor;
+        if (factor >= 0.01f) {
+            // Rain: blue-grey tint. Thunder: dark purple. Snow: pale white.
+            float weatherR, weatherG, weatherB;
+            if (thunder > 0.3f) {
+                weatherR = 0.40f - thunder * 0.15f;
+                weatherG = 0.38f - thunder * 0.20f;
+                weatherB = 0.50f;
+            } else if (rain > 0.2f) {
+                weatherR = 0.50f - rain * 0.10f;
+                weatherG = 0.53f - rain * 0.08f;
+                weatherB = 0.60f + rain * 0.10f;
+            } else {
+                weatherR = 0.70f - rain * 0.15f;
+                weatherG = 0.72f - rain * 0.12f;
+                weatherB = 0.75f - rain * 0.10f;
+            }
+            r = r + (weatherR - r) * factor;
+            g = g + (weatherG - g) * factor;
+            b = b + (weatherB - b) * factor;
+        }
+        
+        if (thunder > 0.15f) {
+            float auroraGlow = (float) Math.sin(world.getTime() * 0.04f) * 0.08f;
+            auroraGlow = Math.max(0f, auroraGlow) * thunder;
+            g += auroraGlow;
+            b += auroraGlow * 1.2f;
+        }
 
         state.skyColor = (0xFF << 24)
                 | (Math.clamp((int) (r * 255), 0, 255) << 16)
