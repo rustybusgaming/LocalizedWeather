@@ -2,6 +2,7 @@ package net.fentbusgaming.localweather.weather;
 
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.world.biome.Biome;
+import net.minecraft.world.biome.BiomeKeys;
 
 /**
  * Contains biome-aware logic for selecting appropriate weather types.
@@ -26,6 +27,11 @@ public final class BiomeWeatherRules {
             WeatherZone.WeatherType requested) {
 
         Biome biome = biomeEntry.value();
+
+        // Check if the biome is a desert
+        if (biome.getCategory() == Biome.Category.DESERT) {
+            return WeatherZone.WeatherType.CLEAR;
+        }
 
         // Vanillas hasPrecipitation() already handles frozen/snowy logic.
         // We tap into temperature for hot/dry biomes.
