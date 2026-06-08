@@ -24,7 +24,9 @@
     "fabricloader": "*",
     "fabric-api": "*",
     "minecraft": ">=1.21.9",
-    "java": ">=21"
+    "java": ">=21",
+    "quilt-loader": "${quilt_loader_version}",
+    "quilt-fabric-api": "${quilt_fabric_api_version}"
   },
   "recommends": {
     "modmenu": "*",
