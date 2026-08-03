@@ -53,7 +53,7 @@ public class HailParticleRenderer {
 
         matrices.push();
         Matrix4f mat = matrices.peek().getPositionMatrix();
-        VertexConsumer buffer = consumers.getBuffer(RenderLayers.debugQuads());
+        VertexConsumer buffer = consumers.getBuffer(RenderLayers.translucentMovingBlock());
 
         for (ClientWeatherHandler.ZoneState zone : zones.values()) {
             if (zone.weather != WeatherZone.WeatherType.HAIL || zone.transitionProgress < 0.1f) continue;

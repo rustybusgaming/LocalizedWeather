@@ -59,7 +59,7 @@ public class StormCloudRenderer {
     private static final float[] CLOUD_LAYER_ALPHA_SCALE = {1f, 0.62f, 0.38f};
     private static final float[] CLOUD_LAYER_WIND_SCALE = {1.0f, 1.35f, 1.65f};
 
-    private static final RenderLayer CLOUD_RENDER_LAYER = RenderLayers.debugQuads();
+    private static final RenderLayer CLOUD_RENDER_LAYER = RenderLayers.translucentMovingBlock();
 
     public static void register() {
         WorldRenderEvents.AFTER_ENTITIES.register(StormCloudRenderer::render);
