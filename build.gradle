@@ -36,7 +36,7 @@ dependencies {
 
     // Quilt support
     modImplementation "org.quiltmc:quilt-loader:${project.loader_version}"
-    modImplementation "org.quiltmc:quilt-fabric-api:${project.fabric_version}"
+    // modImplementation "org.quiltmc:quilt-fabric-api:${project.fabric_version}"
 
     // YACL v3 — required by Better Clouds at runtime
     modRuntimeOnly "dev.isxander:yet-another-config-lib:3.8.1+1.21.11-fabric"
@@ -49,7 +49,7 @@ processResources {
     inputs.property "version", project.version
 
     filesMatching("fabric.mod.json") {
-        expand "version": project.version
+        expand "version": project.version, "quilt_loader_version": project.quilt_loader_version, "quilt_fabric_api_version": project.quilt_fabric_api_version
     }
 }
 

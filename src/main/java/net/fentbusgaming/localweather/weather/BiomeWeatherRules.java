@@ -29,7 +29,7 @@ public final class BiomeWeatherRules {
         Biome biome = biomeEntry.value();
 
         // Check if the biome is a desert
-        if (biome.getCategory() == Biome.Category.DESERT) {
+        if (!biome.hasPrecipitation()) {
             return WeatherZone.WeatherType.CLEAR;
         }
 
