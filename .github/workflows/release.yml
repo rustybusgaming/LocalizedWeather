@@ -79,9 +79,9 @@ jobs:
           version-type: release
           loaders: fabric
           game-versions: ${{ steps.mcversion.outputs.mc }}
-          dependencies: |
-            fabric-api(required)
-            modmenu(optional)
+          modrinth-dependencies: |
+            P7dR8mSH(required)
+            mOgUt4GM(optional)
 
       - name: Publish to CurseForge
         uses: Kir-Antipov/mc-publish@v3.3
