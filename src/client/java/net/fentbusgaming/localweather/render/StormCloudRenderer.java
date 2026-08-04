@@ -141,7 +141,7 @@ public class StormCloudRenderer {
                     float distFade = cellDist < MAX_DIST * 0.6f ? 1f :
                             Math.max(0f, 1f - (float) ((cellDist - MAX_DIST * 0.6f) / (MAX_DIST * 0.4f)));
                     float edgeFade = zoneEdgeFade(cx, cz);
-                    float baseCellShape = shapeNoise(worldCellX, worldCellZ, 3);
+                    float baseCellShape = cellNoise(worldCellX, worldCellZ, 3);
 
                     for (int layer = 0; layer < CLOUD_LAYERS; layer++) {
                         float layerCoverage = config.coverage + CLOUD_LAYER_COVERAGE_ADJUST[layer];
