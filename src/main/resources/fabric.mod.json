@@ -21,16 +21,12 @@
     }
   ],
   "depends": {
-    "fabricloader": "*",
+    "fabricloader": ">=0.19.2",
     "fabric-api": "*",
-    "minecraft": ">=1.21.9",
-    "java": ">=21",
-    "quilt-loader": "${quilt_loader_version}",
-    "quilt-fabric-api": "${quilt_fabric_api_version}"
+    "minecraft": "~1.21.11",
+    "java": ">=21"
   },
   "recommends": {
-    "modmenu": "*",
-    "better-clouds": "*",
-    "yet-another-config-lib": "*"
+    "modmenu": "*"
   }
 }

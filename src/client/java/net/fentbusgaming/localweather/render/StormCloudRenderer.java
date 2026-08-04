@@ -20,10 +20,9 @@ import org.joml.Matrix4f;
 import java.util.Map;
 
 /**
- * Renders blocky, Minecraft-style storm clouds over weather zones.
- * Each zone is divided into a grid of cloud cells. A hash function determines
- * which cells are filled, producing patchy cloud coverage. Filled cells are
- * drawn as 3D boxes (top face + 4 sides) with shading, like vanilla clouds.
+ * Renders a localized storm tint over vanilla clouds. The overlay uses the
+ * same 12-block pixel scale as Minecraft's cloud texture, while vanilla keeps
+ * ownership of the global cloud renderer for maximum renderer compatibility.
  */
 @Environment(EnvType.CLIENT)
 public class StormCloudRenderer {
@@ -31,48 +30,38 @@ public class StormCloudRenderer {
     private static final int ZONE_SIZE = WeatherZoneManager.CHUNKS_PER_ZONE * 16;
 
     /** Size of each cloud "pixel" in blocks. */
-    private static final int CELL_SIZE = 16;
+    private static final int CELL_SIZE = 12;
     /** Vertical thickness of cloud boxes in blocks. */
-    private static final float CLOUD_THICKNESS = 6.0f;
+    private static final float CLOUD_THICKNESS = 4.0f;
     /** Base height of the cloud layer bottom. */
     private static final float CLOUD_BASE = 191.0f;
     /** How far away clouds are visible (in blocks). */
     private static final float MAX_DIST = ZONE_SIZE * 4.5f;
     /** Clouds drift speed (blocks per tick). */
-    private static final float DRIFT_SPEED = 0.4f;
+    private static final float DRIFT_SPEED = 0.03f;
 
-    private static final int CELLS_PER_ZONE = ZONE_SIZE / CELL_SIZE;
+    private static final int CELLS_PER_ZONE = (int) Math.ceil(ZONE_SIZE / (float) CELL_SIZE);
 
-    private static final float COVERAGE_RAIN = 0.55f;
-    private static final float COVERAGE_THUNDER = 0.70f;
-    private static final float COVERAGE_SNOW = 0.50f;
-    private static final float COVERAGE_HAIL = 0.62f;
+    private static final float COVERAGE_RAIN = 0.68f;
+    private static final float COVERAGE_THUNDER = 0.80f;
+    private static final float COVERAGE_SNOW = 0.62f;
+    private static final float COVERAGE_HAIL = 0.72f;
 
-    private static final float ALPHA_RAIN = 0.65f;
-    private static final float ALPHA_THUNDER = 0.82f;
-    private static final float ALPHA_SNOW = 0.55f;
-    private static final float ALPHA_HAIL = 0.74f;
+    private static final float ALPHA_RAIN = 0.48f;
+    private static final float ALPHA_THUNDER = 0.66f;
+    private static final float ALPHA_SNOW = 0.42f;
+    private static final float ALPHA_HAIL = 0.56f;
 
-    private static final int CLOUD_LAYERS = 3;
-    private static final float[] CLOUD_LAYER_HEIGHT = {0f, 4.8f, 9.4f};
-    private static final float[] CLOUD_LAYER_COVERAGE_ADJUST = {0f, -0.08f, -0.20f};
-    private static final float[] CLOUD_LAYER_ALPHA_SCALE = {1f, 0.62f, 0.38f};
-    private static final float[] CLOUD_LAYER_WIND_SCALE = {1.0f, 1.35f, 1.65f};
+    private static final int CLOUD_LAYERS = 1;
+    private static final float[] CLOUD_LAYER_HEIGHT = {0f};
+    private static final float[] CLOUD_LAYER_COVERAGE_ADJUST = {0f};
+    private static final float[] CLOUD_LAYER_ALPHA_SCALE = {1f};
+    private static final float[] CLOUD_LAYER_WIND_SCALE = {1.0f};
 
     private static final RenderLayer CLOUD_RENDER_LAYER = RenderLayers.translucentMovingBlock();
 
     public static void register() {
         WorldRenderEvents.AFTER_ENTITIES.register(StormCloudRenderer::render);
-    }
-
-    public static void renderCustomClouds(Vec3d cam, float tickDelta) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.world == null) return;
-
-        MatrixStack matrices = new MatrixStack();
-        VertexConsumerProvider.Immediate consumers = client.getBufferBuilders().getEntityVertexConsumers();
-        renderInternal(client, matrices, tickDelta, cam, consumers);
-        consumers.draw();
     }
 
     private static void render(WorldRenderContext context) {
@@ -87,10 +76,6 @@ public class StormCloudRenderer {
     }
 
     private static void renderInternal(MinecraftClient client, MatrixStack matrices, float tickDelta, Vec3d cam, VertexConsumerProvider consumers) {
-        if (ClientWeatherHandler.getCurrentZoneWeather() == WeatherZone.WeatherType.CLEAR) {
-            return;
-        }
-
         Map<Long, ClientWeatherHandler.ZoneState> zones = ClientWeatherHandler.getZoneStates();
         if (zones.isEmpty()) return;
 
@@ -102,7 +87,8 @@ public class StormCloudRenderer {
 
         boolean anyVisible = false;
         for (ClientWeatherHandler.ZoneState s : zones.values()) {
-            if (s.weather == WeatherZone.WeatherType.CLEAR || s.transitionProgress < 0.05f) continue;
+            WeatherZone.WeatherType weather = s.getRenderableWeather();
+            if (weather == WeatherZone.WeatherType.CLEAR || s.getWeatherIntensity(weather) < 0.05f) continue;
             double dx = (s.zoneX + 0.5) * ZONE_SIZE - cam.x;
             double dz = (s.zoneZ + 0.5) * ZONE_SIZE - cam.z;
             if (dx * dx + dz * dz < MAX_DIST * MAX_DIST) {
@@ -117,7 +103,9 @@ public class StormCloudRenderer {
         VertexConsumer buffer = consumers.getBuffer(CLOUD_RENDER_LAYER);
 
         for (ClientWeatherHandler.ZoneState s : zones.values()) {
-            if (s.weather == WeatherZone.WeatherType.CLEAR || s.transitionProgress < 0.05f) continue;
+            WeatherZone.WeatherType weather = s.getRenderableWeather();
+            float weatherIntensity = s.getWeatherIntensity(weather);
+            if (weather == WeatherZone.WeatherType.CLEAR || weatherIntensity < 0.05f) continue;
 
             double zoneCX = (s.zoneX + 0.5) * ZONE_SIZE;
             double zoneCZ = (s.zoneZ + 0.5) * ZONE_SIZE;
@@ -126,9 +114,9 @@ public class StormCloudRenderer {
             double zoneDist = Math.sqrt(zDistX * zDistX + zDistZ * zDistZ);
             if (zoneDist > MAX_DIST + ZONE_SIZE) continue;
 
-            WeatherRenderConfig config = getWeatherConfig(s.weather);
-            float thunderPulse = getThunderPulse(worldTime, tickDelta, s.transitionProgress, s.weather);
-            float weatherHeightOffset = switch (s.weather) {
+            WeatherRenderConfig config = getWeatherConfig(weather);
+            float thunderPulse = getThunderPulse(worldTime, tickDelta, weatherIntensity, weather);
+            float weatherHeightOffset = switch (weather) {
                 case THUNDER -> -10f;
                 case SNOW -> 10f;
                 case HAIL -> -4f;
@@ -166,9 +154,9 @@ public class StormCloudRenderer {
 
                         float cellWX = zoneWorldX + cx * CELL_SIZE + layerDriftX;
                         float cellWZ = zoneWorldZ + cz * CELL_SIZE + layerDriftZ;
-                        float shapeOffset = 0.75f * baseCellShape * layer * 0.7f;
-                        float thickness = CLOUD_THICKNESS * (0.86f + 0.24f * shapeNoise(worldCellX + 17, worldCellZ + 31, layer + 7));
-                        float alpha = config.baseAlpha * s.transitionProgress * CLOUD_LAYER_ALPHA_SCALE[layer] * distFade * edgeFade;
+                        float shapeOffset = 0f;
+                        float thickness = CLOUD_THICKNESS;
+                        float alpha = config.baseAlpha * weatherIntensity * CLOUD_LAYER_ALPHA_SCALE[layer] * distFade * edgeFade;
                         alpha = Math.min(1f, alpha + thunderPulse);
                         if (alpha < 0.01f) continue;
 
@@ -237,7 +225,7 @@ public class StormCloudRenderer {
                 }
             }
 
-            if (s.weather == WeatherZone.WeatherType.THUNDER && thunderPulse > 0.15f) {
+            if (weather == WeatherZone.WeatherType.THUNDER && thunderPulse > 0.15f) {
                 renderLightningArcs(mat, buffer, s.zoneX, s.zoneZ, worldTime, tickDelta, cam, thunderPulse);
             }
         }
@@ -247,10 +235,10 @@ public class StormCloudRenderer {
 
     private static WeatherRenderConfig getWeatherConfig(WeatherZone.WeatherType weather) {
         return switch (weather) {
-            case THUNDER -> new WeatherRenderConfig(0x2A, 0x2A, 0x32, COVERAGE_THUNDER, ALPHA_THUNDER);
-            case SNOW -> new WeatherRenderConfig(0xC2, 0xC7, 0xCF, COVERAGE_SNOW, ALPHA_SNOW);
-            case HAIL -> new WeatherRenderConfig(0x54, 0x5D, 0x68, COVERAGE_HAIL, ALPHA_HAIL);
-            default -> new WeatherRenderConfig(0x6A, 0x6F, 0x78, COVERAGE_RAIN, ALPHA_RAIN);
+            case THUNDER -> new WeatherRenderConfig(0x3C, 0x3E, 0x45, COVERAGE_THUNDER, ALPHA_THUNDER);
+            case SNOW -> new WeatherRenderConfig(0xA7, 0xAD, 0xB6, COVERAGE_SNOW, ALPHA_SNOW);
+            case HAIL -> new WeatherRenderConfig(0x65, 0x6D, 0x76, COVERAGE_HAIL, ALPHA_HAIL);
+            default -> new WeatherRenderConfig(0x7E, 0x83, 0x8B, COVERAGE_RAIN, ALPHA_RAIN);
         };
     }
 
@@ -295,10 +283,6 @@ public class StormCloudRenderer {
         int edge = Math.min(Math.min(cx, cz), Math.min(CELLS_PER_ZONE - 1 - cx, CELLS_PER_ZONE - 1 - cz));
         if (edge >= 3) return 1f;
         return 0.55f + edge * 0.15f;
-    }
-
-    private static float shapeNoise(int cx, int cz, int layer) {
-        return (cellHash(cx * 31 + layer * 101, cz * 57 + layer * 79, layer) & 0x7FFFFFFF) / (float) Integer.MAX_VALUE;
     }
 
     private static Vec3d normalizedWind(double x, double z) {

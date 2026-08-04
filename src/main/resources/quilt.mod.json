@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "quilt_loader": {
+    "group": "net.fentbusgaming",
+    "id": "localweather",
+    "version": "${version}",
+    "metadata": {
+      "name": "Localized Weather",
+      "description": "Per-zone localized weather with biome-aware rules, smooth transitions, and Minecraft-style storm clouds.",
+      "contributors": {
+        "fentbusgaming": "Owner"
+      },
+      "license": "MIT",
+      "icon": "assets/localweather/icon.png"
+    },
+    "entrypoints": {
+      "init": "net.fentbusgaming.localweather.LocalWeatherMod",
+      "client_init": "net.fentbusgaming.localweather.LocalWeatherClient"
+    },
+    "depends": [
+      {
+        "id": "quilt_loader",
+        "versions": ">=0.19.2"
+      },
+      {
+        "id": "minecraft",
+        "versions": "~1.21.11"
+      },
+      {
+        "id": "fabric-api",
+        "versions": "*"
+      }
+    ],
+    "intermediate_mappings": "net.fabricmc:intermediary"
+  },
+  "mixin": [
+    "localweather.mixins.json",
+    "localweather.client.mixins.json"
+  ]
+}

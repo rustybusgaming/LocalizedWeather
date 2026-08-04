@@ -4,14 +4,13 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fentbusgaming.localweather.LocalWeatherMod;
 import net.fentbusgaming.localweather.network.WeatherPackets;
 import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.World;
-import net.minecraft.world.biome.Biome;
+import net.minecraft.world.Heightmap;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -26,6 +25,7 @@ public class WeatherZoneManager {
 
     /** Chunks per zone side (16 chunks = 256 blocks). */
     public static final int CHUNKS_PER_ZONE = 16;
+    private static final int BIOME_SAMPLES_PER_SIDE = 5;
 
     /**
      * Weather duration ranges: min/max ticks (20 ticks = 1 second).
@@ -49,9 +49,15 @@ public class WeatherZoneManager {
     private static final Random RANDOM = new Random();
 
     // How often (in ticks) we re-evaluate zone weather (besides duration expiry).
-    // This also controls how often we broadcast zone weather to all nearby players.
+    // This controls how often we broadcast changed zone weather to nearby players.
     private static final int SYNC_INTERVAL = 20; // every 1 second
+    private static final int WIND_SYNC_INTERVAL = 100; // every 5 seconds
+    private static final int CLIENT_ZONE_RADIUS = 2;
     private static int syncTimer = 0;
+    private static int windSyncTimer = 0;
+
+    /** Last zone sent to each player, used to avoid re-sending an unchanged view. */
+    private static final Map<UUID, PlayerZonePosition> PLAYER_ZONE_POSITIONS = new ConcurrentHashMap<>();
 
     public static void init() {
         ServerTickEvents.END_SERVER_TICK.register(WeatherZoneManager::onServerTick);
@@ -70,19 +76,28 @@ public class WeatherZoneManager {
         }
 
         syncTimer++;
+        windSyncTimer++;
         if (syncTimer >= SYNC_INTERVAL) {
             syncTimer = 0;
-            broadcastAllDirtyZones(server);
+            boolean sendWind = windSyncTimer >= WIND_SYNC_INTERVAL;
+            if (sendWind) {
+                windSyncTimer = 0;
+            }
+            broadcastAllDirtyZones(server, sendWind);
         }
     }
 
     private static void tickWorld(ServerWorld world) {
         RegistryKey<World> key = world.getRegistryKey();
         Map<Long, WeatherZone> zones = WORLD_ZONES.computeIfAbsent(key, k -> new ConcurrentHashMap<>());
+        Set<Long> activeZoneKeys = getActiveZoneKeys(world);
 
-        // Tick all loaded zones
-        for (Map.Entry<Long, WeatherZone> entry : zones.entrySet()) {
-            WeatherZone zone = entry.getValue();
+        // Zones outside every player's view do not need simulation or storage.
+        zones.keySet().removeIf(zoneKey -> !activeZoneKeys.contains(zoneKey));
+
+        for (long zoneKey : activeZoneKeys) {
+            WeatherZone zone = zones.get(zoneKey);
+            if (zone == null) continue;
 
             boolean transitionDone = zone.tickTransition();
             boolean durationExpired = zone.tickDuration();
@@ -90,16 +105,31 @@ public class WeatherZoneManager {
             if (transitionDone || durationExpired) {
                 if (durationExpired) {
                     // Pick new weather for this zone
-                    int zoneX = unpackX(entry.getKey());
-                    int zoneZ = unpackZ(entry.getKey());
+                    int zoneX = unpackX(zoneKey);
+                    int zoneZ = unpackZ(zoneKey);
                     WeatherZone.WeatherType next = pickNewWeather(world, zone, zoneX, zoneZ);
                     int duration = randomDuration(next);
                     zone.setTargetWeather(next);
                     zone.setWeatherDuration(duration);
                 }
-                markDirty(world.getRegistryKey(), entry.getKey());
+                markDirty(world.getRegistryKey(), zoneKey);
             }
         }
+    }
+
+    private static Set<Long> getActiveZoneKeys(ServerWorld world) {
+        Set<Long> activeZoneKeys = new HashSet<>();
+        for (ServerPlayerEntity player : world.getPlayers()) {
+            ChunkPos chunkPos = player.getChunkPos();
+            int centerZoneX = chunkPos.x >> 4;
+            int centerZoneZ = chunkPos.z >> 4;
+            for (int dx = -CLIENT_ZONE_RADIUS; dx <= CLIENT_ZONE_RADIUS; dx++) {
+                for (int dz = -CLIENT_ZONE_RADIUS; dz <= CLIENT_ZONE_RADIUS; dz++) {
+                    activeZoneKeys.add(pack(centerZoneX + dx, centerZoneZ + dz));
+                }
+            }
+        }
+        return activeZoneKeys;
     }
 
     // -------------------------------------------------------------------------
@@ -203,18 +233,38 @@ public class WeatherZoneManager {
     }
 
     /**
-     * Sample the biome at the centre of the zone to apply biome weather rules.
+     * Resolve weather from an evenly distributed surface sample of the whole zone.
+     * This prevents a small desert, mountain, or snowy patch at the centre from
+     * determining weather for all 256 by 256 blocks.
      */
     private static WeatherZone.WeatherType applyBiomeRules(
             ServerWorld world, int zoneX, int zoneZ, WeatherZone.WeatherType requested) {
 
-        // Centre block of the zone (at sea level y=64)
-        int blockX = (zoneX * CHUNKS_PER_ZONE * 16) + (CHUNKS_PER_ZONE * 8);
-        int blockZ = (zoneZ * CHUNKS_PER_ZONE * 16) + (CHUNKS_PER_ZONE * 8);
-        BlockPos pos = new BlockPos(blockX, 64, blockZ);
+        if (requested == WeatherZone.WeatherType.CLEAR) {
+            return WeatherZone.WeatherType.CLEAR;
+        }
 
-        RegistryEntry<Biome> biome = world.getBiome(pos);
-        return BiomeWeatherRules.resolveWeather(biome, requested);
+        int zoneSize = CHUNKS_PER_ZONE * 16;
+        int zoneStartX = zoneX * zoneSize;
+        int zoneStartZ = zoneZ * zoneSize;
+        Map<WeatherZone.WeatherType, Integer> weatherCounts = new EnumMap<>(WeatherZone.WeatherType.class);
+
+        for (int sampleX = 0; sampleX < BIOME_SAMPLES_PER_SIDE; sampleX++) {
+            for (int sampleZ = 0; sampleZ < BIOME_SAMPLES_PER_SIDE; sampleZ++) {
+                int blockX = zoneStartX + ((sampleX * 2 + 1) * zoneSize) / (BIOME_SAMPLES_PER_SIDE * 2);
+                int blockZ = zoneStartZ + ((sampleZ * 2 + 1) * zoneSize) / (BIOME_SAMPLES_PER_SIDE * 2);
+                int surfaceY = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, blockX, blockZ) - 1;
+                BlockPos samplePos = new BlockPos(blockX, Math.max(world.getBottomY(), surfaceY), blockZ);
+                WeatherZone.WeatherType resolved = BiomeWeatherRules.resolveWeather(world.getBiome(samplePos), requested);
+                weatherCounts.merge(resolved, 1, Integer::sum);
+            }
+        }
+
+        return weatherCounts.entrySet().stream()
+                .max(Comparator.<Map.Entry<WeatherZone.WeatherType, Integer>>comparingInt(Map.Entry::getValue)
+                        .thenComparing(entry -> entry.getKey() == requested))
+                .map(Map.Entry::getKey)
+                .orElse(requested);
     }
 
     private static int randomDuration(WeatherZone.WeatherType type) {
@@ -233,7 +283,7 @@ public class WeatherZoneManager {
                 .add(zoneKey);
     }
 
-    private static void broadcastAllDirtyZones(MinecraftServer server) {
+    private static void broadcastAllDirtyZones(MinecraftServer server, boolean sendWind) {
         for (ServerWorld world : server.getWorlds()) {
             RegistryKey<World> worldKey = world.getRegistryKey();
             Set<Long> dirty = DIRTY_ZONES.remove(worldKey);
@@ -247,8 +297,7 @@ public class WeatherZoneManager {
             }
         }
 
-        // Also periodically push current zone weather to each player on join or if state changed
-        syncPlayersZones(server);
+        syncPlayersZones(server, sendWind);
     }
 
     /**
@@ -272,26 +321,39 @@ public class WeatherZoneManager {
      * Sends a 5×5 grid (2 zones out) so the client can detect distant storms
      * and render approaching cloud/sky/fog effects.
      */
-    private static void syncPlayersZones(MinecraftServer server) {
+    private static void syncPlayersZones(MinecraftServer server, boolean sendWind) {
         double windX = WindState.getWindDirX();
         double windZ = WindState.getWindDirZ();
+        Set<UUID> onlinePlayers = new HashSet<>();
 
         for (ServerWorld world : server.getWorlds()) {
             for (ServerPlayerEntity player : world.getPlayers()) {
+                UUID playerId = player.getUuid();
+                onlinePlayers.add(playerId);
                 ChunkPos chunkPos = player.getChunkPos();
                 int centerZoneX = chunkPos.x >> 4;
                 int centerZoneZ = chunkPos.z >> 4;
+                PlayerZonePosition position = new PlayerZonePosition(world.getRegistryKey(), centerZoneX, centerZoneZ);
+                boolean enteredNewZone = !position.equals(PLAYER_ZONE_POSITIONS.put(playerId, position));
 
-                // Send wind direction
-                WeatherPackets.sendWindUpdate(player, windX, windZ);
-
-                // Send current zone + 5x5 grid (2 zones in each direction)
-                for (int dx = -2; dx <= 2; dx++) {
-                    for (int dz = -2; dz <= 2; dz++) {
-                        WeatherZone zone = getOrCreateZone(world, centerZoneX + dx, centerZoneZ + dz);
-                        WeatherPackets.sendWeatherUpdate(player, zone);
-                    }
+                if (sendWind || enteredNewZone) {
+                    WeatherPackets.sendWindUpdate(player, windX, windZ);
                 }
+
+                if (enteredNewZone) {
+                    sendNearbyZones(player, world, centerZoneX, centerZoneZ);
+                }
+            }
+        }
+
+        PLAYER_ZONE_POSITIONS.keySet().retainAll(onlinePlayers);
+    }
+
+    private static void sendNearbyZones(ServerPlayerEntity player, ServerWorld world, int centerZoneX, int centerZoneZ) {
+        for (int dx = -CLIENT_ZONE_RADIUS; dx <= CLIENT_ZONE_RADIUS; dx++) {
+            for (int dz = -CLIENT_ZONE_RADIUS; dz <= CLIENT_ZONE_RADIUS; dz++) {
+                WeatherZone zone = getOrCreateZone(world, centerZoneX + dx, centerZoneZ + dz);
+                WeatherPackets.sendWeatherUpdate(player, zone);
             }
         }
     }
@@ -316,6 +378,7 @@ public class WeatherZoneManager {
     public static void clearWorld(RegistryKey<World> worldKey) {
         WORLD_ZONES.remove(worldKey);
         DIRTY_ZONES.remove(worldKey);
+        PLAYER_ZONE_POSITIONS.entrySet().removeIf(entry -> entry.getValue().worldKey().equals(worldKey));
     }
 
     /**
@@ -336,4 +399,6 @@ public class WeatherZoneManager {
             }
         }
     }
+
+    private record PlayerZonePosition(RegistryKey<World> worldKey, int zoneX, int zoneZ) {}
 }

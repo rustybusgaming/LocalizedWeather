@@ -5,7 +5,7 @@ A Fabric mod that replaces Minecraft's global weather system with **per-zone loc
 ## Loader Support
 
 - **Fabric** — primary supported loader.
-- **Quilt** — supported through Quilt Loader's Fabric mod compatibility. Use the Fabric build with Fabric API available in the Quilt instance.
+- **Quilt** — supported with native Quilt metadata and Fabric API compatibility. Install Fabric API or Quilted Fabric API in the Quilt instance.
 - **NeoForge** — not included in the current jar. NeoForge needs a dedicated platform port because this mod currently uses Fabric entrypoints, Fabric API networking/events, and Fabric render callbacks.
 
 ## Features
@@ -16,15 +16,13 @@ A Fabric mod that replaces Minecraft's global weather system with **per-zone loc
 - **Smooth transitions** — rain/fog/sky color blend seamlessly across zone boundaries
 - **Storm clouds** — blocky, Minecraft-style 3D cloud layers appear over storm zones, visible from a distance
 - **Directional darkening** — sky, fog, and clouds darken toward approaching storms
-- **Better Clouds compatible** — works alongside the Better Clouds mod
+- **Vanilla cloud rendering** — works without a cloud renderer dependency and remains compatible with renderer mods such as VulkanMod
 
 ## Requirements
 
 - Minecraft 1.21.9+
-- Fabric Loader 0.19.2+ or Quilt Loader with Fabric mod compatibility
-- Fabric API
-- [Better Clouds](https://modrinth.com/mod/better-clouds)
-- [YACL](https://modrinth.com/mod/yacl) (required by Better Clouds)
+- Fabric Loader 0.19.2+ or Quilt Loader 0.19.2+
+- Fabric API, or Quilted Fabric API when using Quilt
 
 ## Optional Dependencies
 
@@ -33,9 +31,8 @@ A Fabric mod that replaces Minecraft's global weather system with **per-zone loc
 ## Installation
 
 1. Install [Fabric Loader](https://fabricmc.net/use/installer/) or Quilt Loader, plus [Fabric API](https://modrinth.com/mod/fabric-api)
-2. Install [Better Clouds](https://modrinth.com/mod/better-clouds) and [YACL](https://modrinth.com/mod/yacl)
-3. Drop the mod jar into your `mods` folder
-4. Launch the game
+2. Drop the mod jar into your `mods` folder
+3. Launch the game
 
 ## How It Works
 

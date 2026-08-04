@@ -54,8 +54,8 @@ public class DirectionalThunderSound {
         boolean found = false;
 
         for (ClientWeatherHandler.ZoneState state : ClientWeatherHandler.getZoneStates().values()) {
-            if (state.weather != WeatherZone.WeatherType.THUNDER) continue;
-            if (state.transitionProgress < 0.3f) continue;
+            float thunderIntensity = state.getWeatherIntensity(WeatherZone.WeatherType.THUNDER);
+            if (thunderIntensity < 0.3f) continue;
 
             double zoneCX = (state.zoneX + 0.5) * ZONE_SIZE;
             double zoneCZ = (state.zoneZ + 0.5) * ZONE_SIZE;
@@ -66,7 +66,7 @@ public class DirectionalThunderSound {
             if (dist > MAX_SOUND_DIST) continue;
 
             // Score: closer and more intense = higher
-            float score = state.transitionProgress / (1f + (float) dist / ZONE_SIZE);
+            float score = thunderIntensity / (1f + (float) dist / ZONE_SIZE);
             if (score > bestScore) {
                 bestScore = score;
                 bestX = zoneCX;

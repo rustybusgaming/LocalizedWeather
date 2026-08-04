@@ -28,19 +28,11 @@ public final class BiomeWeatherRules {
 
         Biome biome = biomeEntry.value();
 
-        // Check if the biome is a desert
         if (!biome.hasPrecipitation()) {
             return WeatherZone.WeatherType.CLEAR;
         }
 
-        // Vanillas hasPrecipitation() already handles frozen/snowy logic.
-        // We tap into temperature for hot/dry biomes.
         float temp = biome.getTemperature();
-
-        if (!biome.hasPrecipitation()) {
-            // Biome explicitly has no precipitation (desert, badlands, etc.)
-            return WeatherZone.WeatherType.CLEAR;
-        }
 
         // Snowy biomes: temperature ≤ 0.15 (same threshold Minecraft uses for snow)
         if (temp <= 0.15f) {

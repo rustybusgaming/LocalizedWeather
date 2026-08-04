@@ -43,7 +43,7 @@ public class HailParticleRenderer {
 
         Map<Long, ClientWeatherHandler.ZoneState> zones = ClientWeatherHandler.getZoneStates();
         boolean anyHail = zones.values().stream()
-                .anyMatch(z -> z.weather == WeatherZone.WeatherType.HAIL && z.transitionProgress > 0.1f);
+            .anyMatch(z -> z.getWeatherIntensity(WeatherZone.WeatherType.HAIL) > 0.1f);
         if (!anyHail) return;
 
         Vec3d cam = client.gameRenderer.getCamera().getCameraPos();
@@ -56,7 +56,7 @@ public class HailParticleRenderer {
         VertexConsumer buffer = consumers.getBuffer(RenderLayers.translucentMovingBlock());
 
         for (ClientWeatherHandler.ZoneState zone : zones.values()) {
-            if (zone.weather != WeatherZone.WeatherType.HAIL || zone.transitionProgress < 0.1f) continue;
+            if (zone.getWeatherIntensity(WeatherZone.WeatherType.HAIL) < 0.1f) continue;
 
             renderHailInZone(mat, buffer, zone, cam, client.world.getTime());
         }
@@ -68,7 +68,7 @@ public class HailParticleRenderer {
                                           Vec3d cam, long worldTime) {
         float zoneX = zone.zoneX * ZONE_SIZE;
         float zoneZ = zone.zoneZ * ZONE_SIZE;
-        float intensity = zone.transitionProgress;
+        float intensity = zone.getWeatherIntensity(WeatherZone.WeatherType.HAIL);
 
         for (int px = 0; px < PARTICLE_GRID_SIZE; px++) {
             for (int pz = 0; pz < PARTICLE_GRID_SIZE; pz++) {

@@ -36,12 +36,14 @@ public final class WeatherPackets {
      * Custom payload sent from server to client with zone weather info.
      *
      * Fields:
-     *  - weatherOrdinal: ordinal of WeatherZone.WeatherType (current effective weather)
+     *  - currentWeatherOrdinal: weather at the start of the transition
+     *  - targetWeatherOrdinal: weather at the end of the transition
      *  - transitionProgress: float 0.0–1.0 (how far into transition we are)
      *  - zoneX, zoneZ: zone grid coordinates (for debugging / future use)
      */
     public record WeatherUpdatePayload(
-            int weatherOrdinal,
+             int currentWeatherOrdinal,
+             int targetWeatherOrdinal,
             float transitionProgress,
             int zoneX,
             int zoneZ
@@ -52,7 +54,8 @@ public final class WeatherPackets {
 
         public static final PacketCodec<RegistryByteBuf, WeatherUpdatePayload> CODEC =
                 PacketCodec.tuple(
-                        PacketCodecs.VAR_INT, WeatherUpdatePayload::weatherOrdinal,
+                        PacketCodecs.VAR_INT, WeatherUpdatePayload::currentWeatherOrdinal,
+                        PacketCodecs.VAR_INT, WeatherUpdatePayload::targetWeatherOrdinal,
                         PacketCodecs.FLOAT,   WeatherUpdatePayload::transitionProgress,
                         PacketCodecs.VAR_INT, WeatherUpdatePayload::zoneX,
                         PacketCodecs.VAR_INT, WeatherUpdatePayload::zoneZ,
@@ -111,7 +114,8 @@ public final class WeatherPackets {
 
     public static void sendWeatherUpdate(ServerPlayerEntity player, WeatherZone zone) {
         WeatherUpdatePayload payload = new WeatherUpdatePayload(
-                zone.getEffectiveWeather().ordinal(),
+                                zone.getCurrentWeather().ordinal(),
+                                zone.getTargetWeather().ordinal(),
                 zone.getTransitionProgress(),
                 zone.getZoneX(),
                 zone.getZoneZ()

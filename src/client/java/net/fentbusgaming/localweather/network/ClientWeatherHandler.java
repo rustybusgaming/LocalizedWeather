@@ -59,6 +59,9 @@ public final class ClientWeatherHandler {
     private static double windDirX = 1.0;
     private static double windDirZ = 0.0;
 
+    /** The world whose zone cache is currently being rendered. */
+    private static ClientWorld activeWorld;
+
     private ClientWeatherHandler() {}
 
     // -------------------------------------------------------------------------
@@ -66,15 +69,47 @@ public final class ClientWeatherHandler {
     // -------------------------------------------------------------------------
 
     public static final class ZoneState {
-        public final WeatherZone.WeatherType weather;
-        public final float transitionProgress;
+        public final WeatherZone.WeatherType currentWeather;
+        public final WeatherZone.WeatherType targetWeather;
+        public float transitionProgress;
         public final int zoneX, zoneZ;
 
-        ZoneState(WeatherZone.WeatherType weather, float transitionProgress, int zoneX, int zoneZ) {
-            this.weather = weather;
+        ZoneState(WeatherZone.WeatherType currentWeather, WeatherZone.WeatherType targetWeather,
+                  float transitionProgress, int zoneX, int zoneZ) {
+            this.currentWeather = currentWeather;
+            this.targetWeather = targetWeather;
             this.transitionProgress = transitionProgress;
             this.zoneX = zoneX;
             this.zoneZ = zoneZ;
+        }
+
+        void advanceTransition() {
+            if (currentWeather != targetWeather && transitionProgress < 1.0f) {
+                transitionProgress = Math.min(1.0f, transitionProgress + WeatherZone.TRANSITION_SPEED);
+            }
+        }
+
+        public float getWeatherIntensity(WeatherZone.WeatherType weather) {
+            float currentIntensity = currentWeather == weather ? 1.0f : 0.0f;
+            float targetIntensity = targetWeather == weather ? 1.0f : 0.0f;
+            return currentIntensity + (targetIntensity - currentIntensity) * transitionProgress;
+        }
+
+        public float getRainIntensity() {
+            return isWet(currentWeather) * (1.0f - transitionProgress)
+                    + isWet(targetWeather) * transitionProgress;
+        }
+
+        public float getThunderIntensity() {
+            return getWeatherIntensity(WeatherZone.WeatherType.THUNDER);
+        }
+
+        public WeatherZone.WeatherType getRenderableWeather() {
+            if (targetWeather != WeatherZone.WeatherType.CLEAR
+                    && (currentWeather == WeatherZone.WeatherType.CLEAR || transitionProgress >= 0.5f)) {
+                return targetWeather;
+            }
+            return currentWeather != WeatherZone.WeatherType.CLEAR ? currentWeather : targetWeather;
         }
     }
 
@@ -87,18 +122,21 @@ public final class ClientWeatherHandler {
                 WeatherPackets.WeatherUpdatePayload.ID,
                 (payload, context) -> {
                     WeatherZone.WeatherType[] values = WeatherZone.WeatherType.values();
-                    int ordinal = payload.weatherOrdinal();
-                    if (ordinal < 0 || ordinal >= values.length) {
-                        LocalWeatherMod.LOGGER.warn("[LocalWeather] Invalid weather ordinal: {}", ordinal);
+                    int currentOrdinal = payload.currentWeatherOrdinal();
+                    int targetOrdinal = payload.targetWeatherOrdinal();
+                    if (currentOrdinal < 0 || currentOrdinal >= values.length
+                            || targetOrdinal < 0 || targetOrdinal >= values.length) {
+                        LocalWeatherMod.LOGGER.warn("[LocalWeather] Invalid weather update: {} -> {}", currentOrdinal, targetOrdinal);
                         return;
                     }
-                    WeatherZone.WeatherType weather = values[ordinal];
-                    float progress = payload.transitionProgress();
+                    WeatherZone.WeatherType currentWeather = values[currentOrdinal];
+                    WeatherZone.WeatherType targetWeather = values[targetOrdinal];
+                    float progress = Math.clamp(payload.transitionProgress(), 0.0f, 1.0f);
                     int zx = payload.zoneX();
                     int zz = payload.zoneZ();
 
                     long key = pack(zx, zz);
-                    ZONE_STATES.put(key, new ZoneState(weather, progress, zx, zz));
+                    ZONE_STATES.put(key, new ZoneState(currentWeather, targetWeather, progress, zx, zz));
                 }
         );
 
@@ -120,7 +158,16 @@ public final class ClientWeatherHandler {
 
     private static void onClientTick(MinecraftClient client) {
         ClientWorld world = client.world;
+        if (world != activeWorld) {
+            activeWorld = world;
+            ZONE_STATES.clear();
+            currentZoneWeather = WeatherZone.WeatherType.CLEAR;
+            targetRainGradient = 0.0f;
+            targetThunderGradient = 0.0f;
+        }
         if (world == null || client.player == null) return;
+
+        ZONE_STATES.values().forEach(ZoneState::advanceTransition);
 
         double playerX = client.player.getX();
         double playerZ = client.player.getZ();
@@ -146,7 +193,10 @@ public final class ClientWeatherHandler {
 
         // Update current zone weather type for precipitation mixin
         ZoneState center = ZONE_STATES.get(pack(playerZoneX, playerZoneZ));
-        currentZoneWeather = (center != null) ? center.weather : WeatherZone.WeatherType.CLEAR;
+        currentZoneWeather = (center != null) ? center.getRenderableWeather() : WeatherZone.WeatherType.CLEAR;
+
+        ZONE_STATES.values().removeIf(state -> Math.abs(state.zoneX - playerZoneX) > 3
+            || Math.abs(state.zoneZ - playerZoneZ) > 3);
 
         // Compute storm direction: weighted average direction toward all nearby stormy zones
         computeStormDirection(playerX, playerZ, playerZoneX, playerZoneZ);
@@ -219,12 +269,7 @@ public final class ClientWeatherHandler {
     // -------------------------------------------------------------------------
 
     private static float zoneRainLevelRaw(ZoneState state) {
-        if (state == null) return 0f;
-        boolean wet = state.weather == WeatherZone.WeatherType.RAIN
-                || state.weather == WeatherZone.WeatherType.THUNDER
-                || state.weather == WeatherZone.WeatherType.SNOW
-                || state.weather == WeatherZone.WeatherType.HAIL;
-        return wet ? state.transitionProgress : 0f;
+        return state != null ? state.getRainIntensity() : 0.0f;
     }
 
     private static float zoneRainLevel(int zoneX, int zoneZ) {
@@ -233,8 +278,14 @@ public final class ClientWeatherHandler {
 
     private static float zoneThunderLevel(int zoneX, int zoneZ) {
         ZoneState state = ZONE_STATES.get(pack(zoneX, zoneZ));
-        if (state == null) return 0f;
-        return (state.weather == WeatherZone.WeatherType.THUNDER) ? state.transitionProgress : 0f;
+        return state != null ? state.getThunderIntensity() : 0.0f;
+    }
+
+    private static float isWet(WeatherZone.WeatherType weather) {
+        return weather == WeatherZone.WeatherType.RAIN
+                || weather == WeatherZone.WeatherType.THUNDER
+                || weather == WeatherZone.WeatherType.SNOW
+                || weather == WeatherZone.WeatherType.HAIL ? 1.0f : 0.0f;
     }
 
     // -------------------------------------------------------------------------

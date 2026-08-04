@@ -99,10 +99,10 @@ public class WeatherSoundManager {
 
         for (ClientWeatherHandler.ZoneState state : ClientWeatherHandler.getZoneStates().values()) {
             if (soundsPlayed >= MAX_RAIN_SOUNDS_PER_TICK) break;
-            if (state.weather == WeatherZone.WeatherType.CLEAR) continue;
-            if (state.weather == WeatherZone.WeatherType.SNOW) continue;
-            if (state.transitionProgress < 0.1f) continue;
-            boolean hail = state.weather == WeatherZone.WeatherType.HAIL;
+            WeatherZone.WeatherType weather = state.getRenderableWeather();
+            float intensity = state.getWeatherIntensity(weather);
+            if (weather == WeatherZone.WeatherType.CLEAR || weather == WeatherZone.WeatherType.SNOW || intensity < 0.1f) continue;
+            boolean hail = weather == WeatherZone.WeatherType.HAIL;
 
             double zoneCX = (state.zoneX + 0.5) * ZONE_SIZE;
             double zoneCZ = (state.zoneZ + 0.5) * ZONE_SIZE;
@@ -122,7 +122,7 @@ public class WeatherSoundManager {
                 soundX = playerX + Math.cos(angle) * radius;
                 soundZ = playerZ + Math.sin(angle) * radius;
                 soundY = playerY + RANDOM.nextDouble() * 8;
-                volume = 0.15f + state.transitionProgress * (hail ? 0.18f : 0.25f);
+                volume = 0.15f + intensity * (hail ? 0.18f : 0.25f);
             } else {
                 // --- Zone is to one side: directional stereo ---
                 double dirX = dx / dist;
@@ -139,7 +139,7 @@ public class WeatherSoundManager {
                 soundY = playerY + 5 + RANDOM.nextDouble() * 10;
 
                 float distFactor = 1.0f - (float) (dist / MAX_RAIN_DIST);
-                volume = (0.05f + distFactor * (hail ? 0.15f : 0.2f)) * state.transitionProgress;
+                volume = (0.05f + distFactor * (hail ? 0.15f : 0.2f)) * intensity;
             }
 
             if (volume < 0.02f) continue;
@@ -185,8 +185,8 @@ public class WeatherSoundManager {
         boolean found = false;
 
         for (ClientWeatherHandler.ZoneState state : ClientWeatherHandler.getZoneStates().values()) {
-            if (state.weather != WeatherZone.WeatherType.THUNDER) continue;
-            if (state.transitionProgress < 0.2f) continue;
+            float thunderIntensity = state.getWeatherIntensity(WeatherZone.WeatherType.THUNDER);
+            if (thunderIntensity < 0.2f) continue;
 
             double zoneCX = (state.zoneX + 0.5) * ZONE_SIZE;
             double zoneCZ = (state.zoneZ + 0.5) * ZONE_SIZE;
@@ -196,7 +196,7 @@ public class WeatherSoundManager {
 
             if (dist < MIN_DISTANT_DIST || dist > MAX_DISTANT_DIST) continue;
 
-            float score = state.transitionProgress / (1f + (float) dist / ZONE_SIZE);
+            float score = thunderIntensity / (1f + (float) dist / ZONE_SIZE);
             if (score > bestScore) {
                 bestScore = score;
                 bestDist = dist;
