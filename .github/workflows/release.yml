@@ -38,18 +38,32 @@ jobs:
         id: mcversion
         run: echo "mc=$(grep '^minecraft_version=' gradle.properties | cut -d= -f2)" >> "$GITHUB_OUTPUT"
 
-      - name: Find mod jar
-        id: jar
+      - name: Find release jars
+        id: jars
         run: |
-          JAR=$(find build/libs -name '*.jar' ! -name '*-sources.jar' | head -1)
-          echo "path=$JAR" >> "$GITHUB_OUTPUT"
-          echo "Found jar: $JAR"
+          FABRIC_JAR=$(find build/libs -maxdepth 1 -type f -name 'localweather-*.jar' ! -name '*-sources.jar' ! -name '*-quilt.jar' -print -quit)
+          QUILT_JAR=$(find build/libs -maxdepth 1 -type f -name 'localweather-*-quilt.jar' -print -quit)
+
+          test -n "$FABRIC_JAR" && test -f "$FABRIC_JAR"
+          test -n "$QUILT_JAR" && test -f "$QUILT_JAR"
+
+          {
+            echo "fabric=$FABRIC_JAR"
+            echo "quilt=$QUILT_JAR"
+            echo "files<<EOF"
+            echo "$FABRIC_JAR"
+            echo "$QUILT_JAR"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Fabric jar: $FABRIC_JAR"
+          echo "Quilt jar: $QUILT_JAR"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           name: Localized Weather v${{ steps.version.outputs.version }}
-          files: ${{ steps.jar.outputs.path }}
+          files: ${{ steps.jars.outputs.files }}
           generate_release_notes: true
           draft: false
           prerelease: false
@@ -59,7 +73,7 @@ jobs:
         with:
           modrinth-id: ${{ vars.MODRINTH_PROJECT_ID }}
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
-          files: ${{ steps.jar.outputs.path }}
+          files: ${{ steps.jars.outputs.fabric }}
           name: Localized Weather v${{ steps.version.outputs.version }}
           version: ${{ steps.version.outputs.version }}
           version-type: release
@@ -67,8 +81,6 @@ jobs:
           game-versions: ${{ steps.mcversion.outputs.mc }}
           dependencies: |
             fabric-api(required)
-            better-clouds(optional)
-            yet-another-config-lib(optional)
             modmenu(optional)
 
       - name: Publish to CurseForge
@@ -76,7 +88,7 @@ jobs:
         with:
           curseforge-id: ${{ vars.CURSEFORGE_PROJECT_ID }}
           curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
-          files: ${{ steps.jar.outputs.path }}
+          files: ${{ steps.jars.outputs.fabric }}
           name: Localized Weather v${{ steps.version.outputs.version }}
           version: ${{ steps.version.outputs.version }}
           version-type: release
@@ -84,6 +96,4 @@ jobs:
           game-versions: ${{ steps.mcversion.outputs.mc }}
           dependencies: |
             fabric-api(required)
-            better-clouds(optional)
-            yet-another-config-lib(optional)
             modmenu(optional)
