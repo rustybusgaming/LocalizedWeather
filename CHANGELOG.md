@@ -2,6 +2,16 @@
 
 All notable changes to Localized Weather will be documented in this file.
 
+## [1.3.0] - 2026-08-04
+
+### Added
+- Native Quilt metadata packaged alongside Fabric metadata in the universal jar
+- Zone-wide weather selection from a 5x5 surface-biome sample grid
+
+### Changed
+- Restored vanilla cloud rendering compatibility and removed the Better Clouds/YACL requirement
+- Improved zone synchronization efficiency and weather transition blending
+
 ## [1.2.1] - 2026-06-07
 
 ### Added

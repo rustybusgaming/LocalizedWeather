@@ -1,0 +1,55 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.143'
+}
+
+version = project.mod_version
+group = project.mod_group_id
+
+base {
+    archivesName = project.archives_base_name
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+}
+
+neoForge {
+    version = project.neoforge_version
+
+    runs {
+        client {
+            client()
+        }
+        server {
+            server()
+            programArgument '--nogui'
+        }
+    }
+
+    mods {
+        "${project.mod_id}" {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+processResources {
+    inputs.properties([
+            loader_version_range: project.loader_version_range,
+            mod_id: project.mod_id,
+            mod_license: project.mod_license,
+            mod_name: project.mod_name,
+            mod_version: project.mod_version,
+            minecraft_version_range: project.minecraft_version_range,
+            neoforge_version: project.neoforge_version
+    ])
+
+    filesMatching('META-INF/neoforge.mods.toml') {
+        expand(inputs.properties)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 21
+}

@@ -6,7 +6,7 @@ A Fabric mod that replaces Minecraft's global weather system with **per-zone loc
 
 - **Fabric** — primary supported loader.
 - **Quilt** — supported with native Quilt metadata and Fabric API compatibility. Install Fabric API or Quilted Fabric API in the Quilt instance.
-- **NeoForge** — not included in the current jar. NeoForge needs a dedicated platform port because this mod currently uses Fabric entrypoints, Fabric API networking/events, and Fabric render callbacks.
+- **NeoForge** — an isolated 1.21.11 NeoForge workspace now lives in [neoforge/README.md](neoforge/README.md). It validates the native loader entrypoint and metadata, but it is not a release artifact until the Fabric event, networking, client, and mixin integrations are ported.
 
 ## Features
 
@@ -16,7 +16,7 @@ A Fabric mod that replaces Minecraft's global weather system with **per-zone loc
 - **Smooth transitions** — rain/fog/sky color blend seamlessly across zone boundaries
 - **Storm clouds** — blocky, Minecraft-style 3D cloud layers appear over storm zones, visible from a distance
 - **Directional darkening** — sky, fog, and clouds darken toward approaching storms
-- **Vanilla cloud rendering** — works without a cloud renderer dependency and remains compatible with renderer mods such as VulkanMod
+- **Vanilla cloud rendering** — localized rain gradients drive Minecraft's own blocky clouds without a cloud renderer dependency, keeping the mod compatible with renderer mods such as VulkanMod
 
 ## Requirements
 

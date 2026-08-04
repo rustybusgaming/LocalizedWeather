@@ -60,3 +60,17 @@ jar {
         rename { "${it}_${project.archivesBaseName}" }
     }
 }
+
+tasks.register("quiltJar", Jar) {
+    dependsOn tasks.remapJar
+    archiveClassifier = "quilt"
+
+    from {
+        zipTree(tasks.remapJar.archiveFile)
+    }
+    exclude "fabric.mod.json"
+}
+
+tasks.named("build") {
+    dependsOn tasks.named("quiltJar")
+}
