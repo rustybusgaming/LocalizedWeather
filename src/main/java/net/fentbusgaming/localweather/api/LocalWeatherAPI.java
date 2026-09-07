@@ -1,10 +1,14 @@
 package net.fentbusgaming.localweather.api;
 
+import net.fentbusgaming.localweather.weather.StormCell;
+import net.fentbusgaming.localweather.weather.StormCellManager;
 import net.fentbusgaming.localweather.weather.WeatherZone;
 import net.fentbusgaming.localweather.weather.WeatherZoneManager;
 import net.fentbusgaming.localweather.weather.WindState;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
+
+import java.util.List;
 
 /**
  * Public API for other mods to query localized weather information.
@@ -120,6 +124,41 @@ public final class LocalWeatherAPI {
      */
     public static boolean isHailingAt(ServerWorld world, BlockPos pos) {
         return getWeatherAt(world, pos) == WeatherZone.WeatherType.HAIL;
+    }
+
+    /**
+     * Get the moving single-cell thunderstorms currently alive in a world.
+     *
+     * <p>A storm cell is the travelling core inside a thundery zone — the thing
+     * clients draw a rain wall and trailing rain bands around.</p>
+     *
+     * @param world the server world
+     * @return an immutable snapshot of the live cells, possibly empty
+     */
+    public static List<StormCell> getStormCells(ServerWorld world) {
+        return StormCellManager.getCells(world);
+    }
+
+    /**
+     * Get the storm cell whose precipitation core covers a position.
+     *
+     * @param world the server world
+     * @param pos   the block position
+     * @return the strongest cell covering the position, or null if none does
+     */
+    public static StormCell getStormCellAt(ServerWorld world, BlockPos pos) {
+        return StormCellManager.getCellAt(world, pos.getX(), pos.getZ());
+    }
+
+    /**
+     * Check whether a position sits inside the core of a moving thunderstorm.
+     *
+     * @param world the server world
+     * @param pos   the block position
+     * @return true if a storm cell covers this position
+     */
+    public static boolean isInStormCell(ServerWorld world, BlockPos pos) {
+        return getStormCellAt(world, pos) != null;
     }
 
     /**
