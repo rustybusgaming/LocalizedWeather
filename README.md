@@ -9,9 +9,9 @@
 Rain, snow, hail and thunderstorms happen independently across the world — you can stand in sunshine and watch a storm roll in over the hills.
 
 [![Build](https://github.com/rustybusgaming/LocalizedWeather/actions/workflows/build.yml/badge.svg)](https://github.com/rustybusgaming/LocalizedWeather/actions/workflows/build.yml)
-[![Minecraft](https://img.shields.io/badge/Minecraft-1.21.9%2B-brightgreen)](https://www.minecraft.net/)
-[![Loader](https://img.shields.io/badge/loader-Fabric%20%7C%20Quilt-dbd0b4)](https://fabricmc.net/)
-[![Java](https://img.shields.io/badge/Java-21-orange)](https://adoptium.net/)
+[![Minecraft](https://img.shields.io/badge/Minecraft-26.1%20%E2%80%93%2026.2-brightgreen)](https://www.minecraft.net/)
+[![Loader](https://img.shields.io/badge/loader-Fabric-dbd0b4)](https://fabricmc.net/)
+[![Java](https://img.shields.io/badge/Java-25-orange)](https://adoptium.net/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 </div>
@@ -57,26 +57,38 @@ Storms further away than the fog horizon are not culled. Their geometry is proje
 
 ## Requirements
 
-- Minecraft **1.21.9+**
-- **Fabric Loader 0.19.2+** or Quilt Loader 0.19.2+
-- **Fabric API**, or Quilted Fabric API on Quilt
-- Java 21
+- Minecraft **26.1 – 26.2** (see the version table below)
+- **Fabric Loader 0.19.5+**
+- **Fabric API**
+- Java 25
+
+> Playing on 1.21.x? Use the **1.3.x** releases. Minecraft 26.1 dropped
+> obfuscation and retired Yarn mappings, so 26.x builds against Mojang's own
+> names — see [docs/loader-support.md](docs/loader-support.md).
 
 ## Installation
 
-1. Install [Fabric Loader](https://fabricmc.net/use/installer/) (or Quilt Loader) and [Fabric API](https://modrinth.com/mod/fabric-api)
-2. Drop the mod jar into your `mods` folder
+1. Install [Fabric Loader](https://fabricmc.net/use/installer/) and [Fabric API](https://modrinth.com/mod/fabric-api)
+2. Drop the jar matching your Minecraft version into your `mods` folder
 3. Launch the game — the weather takes it from there
 
 **Optional:** [Mod Menu](https://modrinth.com/mod/modmenu) for in-game mod info.
 
-## Loader support
+## Versions & loaders
+
+| Minecraft | Build target | Fabric API | Java |
+| --------- | ------------ | ---------- | ---- |
+| 26.1, 26.1.1, 26.1.2 | `-Pmc=26.1.2` (default) | 0.155.3+26.1.2 | 25 |
+| 26.2 | `-Pmc=26.2` | 0.159.0+26.2 | 25 |
+| 1.21.9 – 1.21.11 | 1.3.x releases | — | 21 |
+
+One source tree builds every 26.x target; each target is a file in [`versions/`](versions).
 
 | Loader | Status |
 | ------ | ------ |
 | **Fabric** | ✅ Primary supported loader |
-| **Quilt** | ✅ Supported — ships native Quilt metadata; install Fabric API or Quilted Fabric API |
-| **NeoForge** | 🚧 Isolated workspace in [`neoforge/`](neoforge/README.md) — validates the loader entrypoint and metadata, but the event, networking, client and mixin integrations are not ported yet, so it is not a release artifact |
+| **Quilt** | ⚠️ A Quilt jar is still produced, but it is untested on 26.x — see [docs/loader-support.md](docs/loader-support.md) |
+| **NeoForge** | 🚧 Isolated workspace in [`neoforge/`](neoforge/README.md), still on 1.21.11 and not a release artifact |
 
 See [docs/loader-support.md](docs/loader-support.md) for the full breakdown.
 
@@ -111,10 +123,13 @@ Also available: `getWeatherInZone`, `getTargetWeatherInZone`, `getTransitionProg
 ```bash
 git clone https://github.com/rustybusgaming/LocalizedWeather.git
 cd LocalizedWeather
-./gradlew build
+./gradlew build            # default target (26.1.2)
+./gradlew build -Pmc=26.2  # any target in versions/
+./gradlew printTarget      # show the resolved target
 ```
 
-Jars land in `build/libs/`. The Quilt-flavoured jar is built alongside the Fabric one.
+Needs **JDK 25** — Minecraft 26.x is compiled for it. Jars land in `build/libs/`
+as `localweather-<mod version>+<minecraft version>.jar`.
 
 ## Credits
 

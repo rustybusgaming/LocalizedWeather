@@ -4,21 +4,21 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fentbusgaming.localweather.network.ClientWeatherHandler;
 import net.fentbusgaming.localweather.weather.WeatherZone;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.SkyRendering;
-import net.minecraft.client.render.state.SkyRenderState;
-import net.minecraft.client.world.ClientWorld;
+import net.minecraft.client.Camera;
+import net.minecraft.client.renderer.SkyRenderer;
+import net.minecraft.client.renderer.state.level.SkyRenderState;
+import net.minecraft.client.multiplayer.ClientLevel;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(SkyRendering.class)
+@Mixin(SkyRenderer.class)
 public abstract class SkyColorMixin {
 
-    @Inject(method = "updateRenderState", at = @At("RETURN"))
-    private void localweather$darkenStormSky(ClientWorld world, float tickDelta,
+    @Inject(method = "extractRenderState", at = @At("RETURN"))
+    private void localweather$darkenStormSky(ClientLevel world, float tickDelta,
                                               Camera camera, SkyRenderState state,
                                               CallbackInfo ci) {
         float rain = ClientWeatherHandler.getRainDarkening();
@@ -54,7 +54,7 @@ public abstract class SkyColorMixin {
         }
         
         if (thunder > 0.15f || currentWeather == WeatherZone.WeatherType.HAIL) {
-            float time = world.getTime() + tickDelta;
+            float time = world.getGameTime() + tickDelta;
             float auroraWave = (float) ((Math.sin(time * 0.035f) + Math.sin(time * 0.012f + 1.7f)) * 0.5f);
             float auroraGlow = Math.max(0f, auroraWave) * (0.06f + thunder * 0.12f);
             g += auroraGlow;

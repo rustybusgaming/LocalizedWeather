@@ -1,8 +1,8 @@
 package net.fentbusgaming.localweather.weather;
 
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.world.biome.Biome;
-import net.minecraft.world.biome.BiomeKeys;
+import net.minecraft.core.Holder;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.biome.Biomes;
 
 /**
  * Contains biome-aware logic for selecting appropriate weather types.
@@ -23,7 +23,7 @@ public final class BiomeWeatherRules {
      * </ul>
      */
     public static WeatherZone.WeatherType resolveWeather(
-            RegistryEntry<Biome> biomeEntry,
+            Holder<Biome> biomeEntry,
             WeatherZone.WeatherType requested) {
 
         Biome biome = biomeEntry.value();
@@ -32,7 +32,7 @@ public final class BiomeWeatherRules {
             return WeatherZone.WeatherType.CLEAR;
         }
 
-        float temp = biome.getTemperature();
+        float temp = biome.getBaseTemperature();
 
         // Snowy biomes: temperature ≤ 0.15 (same threshold Minecraft uses for snow)
         if (temp <= 0.15f) {

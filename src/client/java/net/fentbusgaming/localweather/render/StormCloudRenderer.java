@@ -2,19 +2,16 @@ package net.fentbusgaming.localweather.render;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.fentbusgaming.localweather.network.ClientWeatherHandler;
 import net.fentbusgaming.localweather.weather.WeatherZone;
 import net.fentbusgaming.localweather.weather.WeatherZoneManager;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderLayers;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 
 import java.util.Map;
@@ -58,30 +55,35 @@ public class StormCloudRenderer {
     private static final float[] CLOUD_LAYER_ALPHA_SCALE = {1f};
     private static final float[] CLOUD_LAYER_WIND_SCALE = {1.0f};
 
-    private static final RenderLayer CLOUD_RENDER_LAYER = RenderLayers.translucentMovingBlock();
+    private static final RenderType CLOUD_RENDER_LAYER = RenderTypes.translucentMovingBlock();
 
     public static void register() {
-        WorldRenderEvents.AFTER_ENTITIES.register(StormCloudRenderer::render);
+        LevelRenderEvents.COLLECT_SUBMITS.register(StormCloudRenderer::render);
     }
 
-    private static void render(WorldRenderContext context) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        Camera camera = client.gameRenderer.getCamera();
-        Vec3d cam = camera.getCameraPos();
-        VertexConsumerProvider consumers = context.consumers();
-        if (consumers == null) return;
+    private static void render(LevelRenderContext context) {
+        Minecraft client = Minecraft.getInstance();
+        // The frame's own camera position, straight off the render state — the
+        // camera moved off GameRenderer in 26.2, this reads the same on both.
+        Vec3 cam = context.levelState().cameraRenderState.pos;
 
-        float tickDelta = client.getRenderTickCounter().getTickProgress(false);
-        renderInternal(client, context.matrices(), tickDelta, cam, consumers);
+        float tickDelta = client.getDeltaTracker().getGameTimeDeltaPartialTick(false);
+
+        // 26.x builds the level from submitted nodes, so the overlay is handed
+        // over as one custom-geometry node instead of written to a buffer here.
+        context.submitNodeCollector().submitCustomGeometry(
+                context.poseStack(),
+                CLOUD_RENDER_LAYER,
+                (pose, buffer) -> renderInternal(client, pose.pose(), buffer, tickDelta, cam));
     }
 
-    private static void renderInternal(MinecraftClient client, MatrixStack matrices, float tickDelta, Vec3d cam, VertexConsumerProvider consumers) {
+    private static void renderInternal(Minecraft client, Matrix4f mat, VertexConsumer buffer, float tickDelta, Vec3 cam) {
         Map<Long, ClientWeatherHandler.ZoneState> zones = ClientWeatherHandler.getZoneStates();
         if (zones.isEmpty()) return;
 
-        long worldTime = client.world != null ? client.world.getTime() : 0;
+        long worldTime = client.level != null ? client.level.getGameTime() : 0;
         float driftMag = (worldTime + tickDelta) * DRIFT_SPEED;
-        Vec3d windDir = normalizedWind(ClientWeatherHandler.getWindDirX(), ClientWeatherHandler.getWindDirZ());
+        Vec3 windDir = normalizedWind(ClientWeatherHandler.getWindDirX(), ClientWeatherHandler.getWindDirZ());
         float driftX = (float) (driftMag * windDir.x);
         float driftZ = (float) (driftMag * windDir.z);
 
@@ -97,10 +99,6 @@ public class StormCloudRenderer {
             }
         }
         if (!anyVisible) return;
-
-        matrices.push();
-        Matrix4f mat = matrices.peek().getPositionMatrix();
-        VertexConsumer buffer = consumers.getBuffer(CLOUD_RENDER_LAYER);
 
         for (ClientWeatherHandler.ZoneState s : zones.values()) {
             WeatherZone.WeatherType weather = s.getRenderableWeather();
@@ -187,39 +185,39 @@ public class StormCloudRenderer {
                         boolean drawWest = cellNoise(worldCellX - 1, worldCellZ, layer) > layerCoverage;
                         boolean drawEast = cellNoise(worldCellX + 1, worldCellZ, layer) > layerCoverage;
 
-                        buffer.vertex(mat, x1, yTop, z1).color(topR, topG, topB, topAi);
-                        buffer.vertex(mat, x1, yTop, z2).color(topR, topG, topB, topAi);
-                        buffer.vertex(mat, x2, yTop, z2).color(topR, topG, topB, topAi);
-                        buffer.vertex(mat, x2, yTop, z1).color(topR, topG, topB, topAi);
+                        buffer.addVertex(mat, x1, yTop, z1).setColor(topR, topG, topB, topAi);
+                        buffer.addVertex(mat, x1, yTop, z2).setColor(topR, topG, topB, topAi);
+                        buffer.addVertex(mat, x2, yTop, z2).setColor(topR, topG, topB, topAi);
+                        buffer.addVertex(mat, x2, yTop, z1).setColor(topR, topG, topB, topAi);
 
-                        buffer.vertex(mat, x2, yBot, z1).color(botR, botG, botB, botAi);
-                        buffer.vertex(mat, x2, yBot, z2).color(botR, botG, botB, botAi);
-                        buffer.vertex(mat, x1, yBot, z2).color(botR, botG, botB, botAi);
-                        buffer.vertex(mat, x1, yBot, z1).color(botR, botG, botB, botAi);
+                        buffer.addVertex(mat, x2, yBot, z1).setColor(botR, botG, botB, botAi);
+                        buffer.addVertex(mat, x2, yBot, z2).setColor(botR, botG, botB, botAi);
+                        buffer.addVertex(mat, x1, yBot, z2).setColor(botR, botG, botB, botAi);
+                        buffer.addVertex(mat, x1, yBot, z1).setColor(botR, botG, botB, botAi);
 
                         if (drawNorth) {
-                            buffer.vertex(mat, x1, yBot, z1).color(sideR, sideG, sideB, sideAi);
-                            buffer.vertex(mat, x1, yTop, z1).color(sideR, sideG, sideB, sideAi);
-                            buffer.vertex(mat, x2, yTop, z1).color(sideR, sideG, sideB, sideAi);
-                            buffer.vertex(mat, x2, yBot, z1).color(sideR, sideG, sideB, sideAi);
+                            buffer.addVertex(mat, x1, yBot, z1).setColor(sideR, sideG, sideB, sideAi);
+                            buffer.addVertex(mat, x1, yTop, z1).setColor(sideR, sideG, sideB, sideAi);
+                            buffer.addVertex(mat, x2, yTop, z1).setColor(sideR, sideG, sideB, sideAi);
+                            buffer.addVertex(mat, x2, yBot, z1).setColor(sideR, sideG, sideB, sideAi);
                         }
                         if (drawSouth) {
-                            buffer.vertex(mat, x2, yBot, z2).color(sideR, sideG, sideB, sideAi);
-                            buffer.vertex(mat, x2, yTop, z2).color(sideR, sideG, sideB, sideAi);
-                            buffer.vertex(mat, x1, yTop, z2).color(sideR, sideG, sideB, sideAi);
-                            buffer.vertex(mat, x1, yBot, z2).color(sideR, sideG, sideB, sideAi);
+                            buffer.addVertex(mat, x2, yBot, z2).setColor(sideR, sideG, sideB, sideAi);
+                            buffer.addVertex(mat, x2, yTop, z2).setColor(sideR, sideG, sideB, sideAi);
+                            buffer.addVertex(mat, x1, yTop, z2).setColor(sideR, sideG, sideB, sideAi);
+                            buffer.addVertex(mat, x1, yBot, z2).setColor(sideR, sideG, sideB, sideAi);
                         }
                         if (drawWest) {
-                            buffer.vertex(mat, x1, yBot, z2).color(sideR, sideG, sideB, sideAi);
-                            buffer.vertex(mat, x1, yTop, z2).color(sideR, sideG, sideB, sideAi);
-                            buffer.vertex(mat, x1, yTop, z1).color(sideR, sideG, sideB, sideAi);
-                            buffer.vertex(mat, x1, yBot, z1).color(sideR, sideG, sideB, sideAi);
+                            buffer.addVertex(mat, x1, yBot, z2).setColor(sideR, sideG, sideB, sideAi);
+                            buffer.addVertex(mat, x1, yTop, z2).setColor(sideR, sideG, sideB, sideAi);
+                            buffer.addVertex(mat, x1, yTop, z1).setColor(sideR, sideG, sideB, sideAi);
+                            buffer.addVertex(mat, x1, yBot, z1).setColor(sideR, sideG, sideB, sideAi);
                         }
                         if (drawEast) {
-                            buffer.vertex(mat, x2, yBot, z1).color(sideR, sideG, sideB, sideAi);
-                            buffer.vertex(mat, x2, yTop, z1).color(sideR, sideG, sideB, sideAi);
-                            buffer.vertex(mat, x2, yTop, z2).color(sideR, sideG, sideB, sideAi);
-                            buffer.vertex(mat, x2, yBot, z2).color(sideR, sideG, sideB, sideAi);
+                            buffer.addVertex(mat, x2, yBot, z1).setColor(sideR, sideG, sideB, sideAi);
+                            buffer.addVertex(mat, x2, yTop, z1).setColor(sideR, sideG, sideB, sideAi);
+                            buffer.addVertex(mat, x2, yTop, z2).setColor(sideR, sideG, sideB, sideAi);
+                            buffer.addVertex(mat, x2, yBot, z2).setColor(sideR, sideG, sideB, sideAi);
                         }
                     }
                 }
@@ -229,8 +227,6 @@ public class StormCloudRenderer {
                 renderLightningArcs(mat, buffer, s.zoneX, s.zoneZ, worldTime, tickDelta, cam, thunderPulse);
             }
         }
-
-        matrices.pop();
     }
 
     private static WeatherRenderConfig getWeatherConfig(WeatherZone.WeatherType weather) {
@@ -251,7 +247,7 @@ public class StormCloudRenderer {
     }
 
     private static void renderLightningArcs(Matrix4f mat, VertexConsumer buffer, int zoneX, int zoneZ, long worldTime,
-                                             float tickDelta, Vec3d cam, float thunderIntensity) {
+                                             float tickDelta, Vec3 cam, float thunderIntensity) {
         float arcPhase = (worldTime + tickDelta) * 0.8f;
         int arcCount = Math.max(1, (int) (2 + thunderIntensity * 3));
 
@@ -272,10 +268,10 @@ public class StormCloudRenderer {
             int brightness = (int) (arcBright * 200);
             int alpha = (int) (arcBright * 240);
 
-            buffer.vertex(mat, x - 2, yTop, z).color(255, 255, 255, alpha);
-            buffer.vertex(mat, x + 2, yTop, z).color(255, 255, 255, alpha);
-            buffer.vertex(mat, x + 2, yBot, z).color(brightness, brightness, 255, alpha);
-            buffer.vertex(mat, x - 2, yBot, z).color(brightness, brightness, 255, alpha);
+            buffer.addVertex(mat, x - 2, yTop, z).setColor(255, 255, 255, alpha);
+            buffer.addVertex(mat, x + 2, yTop, z).setColor(255, 255, 255, alpha);
+            buffer.addVertex(mat, x + 2, yBot, z).setColor(brightness, brightness, 255, alpha);
+            buffer.addVertex(mat, x - 2, yBot, z).setColor(brightness, brightness, 255, alpha);
         }
     }
 
@@ -285,9 +281,9 @@ public class StormCloudRenderer {
         return 0.55f + edge * 0.15f;
     }
 
-    private static Vec3d normalizedWind(double x, double z) {
+    private static Vec3 normalizedWind(double x, double z) {
         double length = Math.sqrt(x * x + z * z);
-        return length < 1e-4 ? new Vec3d(1.0, 0.0, 0.0) : new Vec3d(x / length, 0.0, z / length);
+        return length < 1e-4 ? new Vec3(1.0, 0.0, 0.0) : new Vec3(x / length, 0.0, z / length);
     }
 
     private static int applyPulse(int channel, float pulse) {

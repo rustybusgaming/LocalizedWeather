@@ -2,17 +2,15 @@ package net.fentbusgaming.localweather.render;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.fentbusgaming.localweather.network.ClientWeatherHandler;
 import net.fentbusgaming.localweather.weather.WeatherZone;
 import net.fentbusgaming.localweather.weather.WeatherZoneManager;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.RenderLayers;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 
 import java.util.Map;
@@ -34,38 +32,36 @@ public class HailParticleRenderer {
     private static final float MAX_DIST = ZONE_SIZE * 3.5f;
 
     public static void register() {
-        WorldRenderEvents.AFTER_ENTITIES.register(HailParticleRenderer::render);
+        LevelRenderEvents.COLLECT_SUBMITS.register(HailParticleRenderer::render);
     }
 
-    public static void render(WorldRenderContext context) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.world == null) return;
+    public static void render(LevelRenderContext context) {
+        Minecraft client = Minecraft.getInstance();
+        if (client.level == null) return;
 
         Map<Long, ClientWeatherHandler.ZoneState> zones = ClientWeatherHandler.getZoneStates();
         boolean anyHail = zones.values().stream()
             .anyMatch(z -> z.getWeatherIntensity(WeatherZone.WeatherType.HAIL) > 0.1f);
         if (!anyHail) return;
 
-        Vec3d cam = client.gameRenderer.getCamera().getCameraPos();
-        MatrixStack matrices = context.matrices();
-        VertexConsumerProvider consumers = context.consumers();
-        if (consumers == null) return;
+        Vec3 cam = context.levelState().cameraRenderState.pos;
+        long worldTime = client.level.getGameTime();
 
-        matrices.push();
-        Matrix4f mat = matrices.peek().getPositionMatrix();
-        VertexConsumer buffer = consumers.getBuffer(RenderLayers.translucentMovingBlock());
+        context.submitNodeCollector().submitCustomGeometry(
+                context.poseStack(),
+                RenderTypes.translucentMovingBlock(),
+                (pose, buffer) -> {
+                    Matrix4f mat = pose.pose();
+                    for (ClientWeatherHandler.ZoneState zone : zones.values()) {
+                        if (zone.getWeatherIntensity(WeatherZone.WeatherType.HAIL) < 0.1f) continue;
 
-        for (ClientWeatherHandler.ZoneState zone : zones.values()) {
-            if (zone.getWeatherIntensity(WeatherZone.WeatherType.HAIL) < 0.1f) continue;
-
-            renderHailInZone(mat, buffer, zone, cam, client.world.getTime());
-        }
-
-        matrices.pop();
+                        renderHailInZone(mat, buffer, zone, cam, worldTime);
+                    }
+                });
     }
 
     private static void renderHailInZone(Matrix4f mat, VertexConsumer buffer, ClientWeatherHandler.ZoneState zone,
-                                          Vec3d cam, long worldTime) {
+                                          Vec3 cam, long worldTime) {
         float zoneX = zone.zoneX * ZONE_SIZE;
         float zoneZ = zone.zoneZ * ZONE_SIZE;
         float intensity = zone.getWeatherIntensity(WeatherZone.WeatherType.HAIL);
@@ -102,10 +98,10 @@ public class HailParticleRenderer {
                 int alpha = (int) (170 * intensity);
                 int bright = 210 + (hash & 31);
 
-                buffer.vertex(mat, x1, yBot, z1).color(bright, bright, 255, alpha);
-                buffer.vertex(mat, x1, yTop, z1).color(bright, bright, 255, alpha);
-                buffer.vertex(mat, x2, yTop, z1).color(bright, bright, 255, alpha);
-                buffer.vertex(mat, x2, yBot, z1).color(bright, bright, 255, alpha);
+                buffer.addVertex(mat, x1, yBot, z1).setColor(bright, bright, 255, alpha);
+                buffer.addVertex(mat, x1, yTop, z1).setColor(bright, bright, 255, alpha);
+                buffer.addVertex(mat, x2, yTop, z1).setColor(bright, bright, 255, alpha);
+                buffer.addVertex(mat, x2, yBot, z1).setColor(bright, bright, 255, alpha);
             }
         }
     }

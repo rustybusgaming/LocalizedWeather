@@ -1,12 +1,12 @@
 package net.fentbusgaming.localweather.weather;
 
 import net.fentbusgaming.localweather.network.WeatherPackets;
-import net.minecraft.registry.RegistryKey;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.world.World;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -45,7 +45,7 @@ public final class StormCellManager {
     /** Cells this far from every player are dropped. */
     private static final double DESPAWN_DISTANCE = 3072.0;
 
-    private static final Map<RegistryKey<World>, List<StormCell>> WORLD_CELLS = new ConcurrentHashMap<>();
+    private static final Map<ResourceKey<Level>, List<StormCell>> WORLD_CELLS = new ConcurrentHashMap<>();
 
     private static final Random RANDOM = new Random();
 
@@ -69,8 +69,8 @@ public final class StormCellManager {
             spawnTimer = 0;
         }
 
-        for (ServerWorld world : server.getWorlds()) {
-            List<StormCell> cells = WORLD_CELLS.get(world.getRegistryKey());
+        for (ServerLevel world : server.getAllLevels()) {
+            List<StormCell> cells = WORLD_CELLS.get(world.dimension());
             if (cells != null && !cells.isEmpty()) {
                 synchronized (cells) {
                     for (StormCell cell : cells) {
@@ -85,9 +85,9 @@ public final class StormCellManager {
         }
     }
 
-    private static boolean isAbandoned(ServerWorld world, StormCell cell) {
+    private static boolean isAbandoned(ServerLevel world, StormCell cell) {
         double despawnSq = DESPAWN_DISTANCE * DESPAWN_DISTANCE;
-        for (ServerPlayerEntity player : world.getPlayers()) {
+        for (ServerPlayer player : world.players()) {
             if (cell.squaredDistanceTo(player.getX(), player.getZ()) <= despawnSq) {
                 return false;
             }
@@ -99,14 +99,14 @@ public final class StormCellManager {
      * Give every thundery zone near a player a storm cell, unless one is already
      * close enough to cover it.
      */
-    private static void trySpawnCells(ServerWorld world) {
+    private static void trySpawnCells(ServerLevel world) {
         List<StormCell> cells = cellsOf(world);
         if (cells.size() >= MAX_CELLS_PER_WORLD) return;
 
-        for (ServerPlayerEntity player : world.getPlayers()) {
-            ChunkPos chunkPos = player.getChunkPos();
-            int centerZoneX = chunkPos.x >> 4;
-            int centerZoneZ = chunkPos.z >> 4;
+        for (ServerPlayer player : world.players()) {
+            ChunkPos chunkPos = player.chunkPosition();
+            int centerZoneX = chunkPos.x() >> 4;
+            int centerZoneZ = chunkPos.z() >> 4;
 
             for (int dx = -WeatherZoneManager.CLIENT_ZONE_RADIUS; dx <= WeatherZoneManager.CLIENT_ZONE_RADIUS; dx++) {
                 for (int dz = -WeatherZoneManager.CLIENT_ZONE_RADIUS; dz <= WeatherZoneManager.CLIENT_ZONE_RADIUS; dz++) {
@@ -158,8 +158,8 @@ public final class StormCellManager {
     public static void syncToPlayers(MinecraftServer server) {
         double syncSq = SYNC_DISTANCE * SYNC_DISTANCE;
 
-        for (ServerWorld world : server.getWorlds()) {
-            List<StormCell> cells = WORLD_CELLS.get(world.getRegistryKey());
+        for (ServerLevel world : server.getAllLevels()) {
+            List<StormCell> cells = WORLD_CELLS.get(world.dimension());
             if (cells == null || cells.isEmpty()) continue;
 
             List<StormCell> snapshot;
@@ -167,7 +167,7 @@ public final class StormCellManager {
                 snapshot = new ArrayList<>(cells);
             }
 
-            for (ServerPlayerEntity player : world.getPlayers()) {
+            for (ServerPlayer player : world.players()) {
                 for (StormCell cell : snapshot) {
                     if (cell.squaredDistanceTo(player.getX(), player.getZ()) <= syncSq) {
                         WeatherPackets.sendStormCell(player, cell);
@@ -181,14 +181,14 @@ public final class StormCellManager {
     // Queries
     // -------------------------------------------------------------------------
 
-    private static List<StormCell> cellsOf(ServerWorld world) {
-        return WORLD_CELLS.computeIfAbsent(world.getRegistryKey(),
+    private static List<StormCell> cellsOf(ServerLevel world) {
+        return WORLD_CELLS.computeIfAbsent(world.dimension(),
                 k -> Collections.synchronizedList(new ArrayList<>()));
     }
 
     /** Immutable snapshot of the cells currently alive in a world. */
-    public static List<StormCell> getCells(ServerWorld world) {
-        List<StormCell> cells = WORLD_CELLS.get(world.getRegistryKey());
+    public static List<StormCell> getCells(ServerLevel world) {
+        List<StormCell> cells = WORLD_CELLS.get(world.dimension());
         if (cells == null) return List.of();
         synchronized (cells) {
             return List.copyOf(cells);
@@ -196,8 +196,8 @@ public final class StormCellManager {
     }
 
     /** The strongest cell whose core covers the position, or null. */
-    public static StormCell getCellAt(ServerWorld world, double x, double z) {
-        List<StormCell> cells = WORLD_CELLS.get(world.getRegistryKey());
+    public static StormCell getCellAt(ServerLevel world, double x, double z) {
+        List<StormCell> cells = WORLD_CELLS.get(world.dimension());
         if (cells == null) return null;
 
         StormCell best = null;
@@ -211,7 +211,7 @@ public final class StormCellManager {
         return best;
     }
 
-    public static void clearWorld(RegistryKey<World> worldKey) {
+    public static void clearWorld(ResourceKey<Level> worldKey) {
         WORLD_CELLS.remove(worldKey);
     }
 }
