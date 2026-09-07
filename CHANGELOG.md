@@ -2,7 +2,11 @@
 
 All notable changes to Localized Weather will be documented in this file.
 
-## [Unreleased]
+## [1.4.0] - Unreleased
+
+Minecraft 26.1 dropped obfuscation and retired Yarn mappings, so this release
+moves the whole mod onto Mojang's own names and targets the 26.x line.
+**1.3.x remains the last release for Minecraft 1.21.x.**
 
 ### Added
 - Moving single-cell thunderstorms — a thundery zone now spawns a travelling storm core that drifts along the wind, wanders slightly off-heading, and grows and dissipates over its own life span
@@ -11,6 +15,21 @@ All notable changes to Localized Weather will be documented in this file.
 - Distant storms keep their rain wall and rain bands: a cell past the fog horizon is scaled onto it rather than culled, so its apparent size is unchanged and a thunderstorm several zones away is still drawn
 - Storm cells drive rain where their core passes, so the rain arrives with the wall and leaves with it
 - `LocalWeatherAPI.getStormCells`, `getStormCellAt` and `isInStormCell` for querying moving cells
+- Support for Minecraft 26.1, 26.1.1, 26.1.2 and 26.2 from a single source tree
+- Version targeting: one properties file per Minecraft line in `versions/`, selected with `-Pmc=<target>`, plus a `printTarget` task
+- CI build and release matrices covering every supported target
+
+### Changed
+- Ported from Yarn to Mojang mappings — Minecraft ships unobfuscated as of 26.1, so there is no intermediary namespace and Loom no longer has a remap step
+- Rewrote all three renderers for the 26.x submit-node pipeline: geometry is handed to `submitCustomGeometry` on `LevelRenderEvents.COLLECT_SUBMITS` instead of being written to a `MultiBufferSource` during `WorldRenderEvents.AFTER_ENTITIES`
+- Renderers read the camera from `LevelRenderContext.levelState().cameraRenderState.pos`, which is stable across 26.1 and 26.2 (26.2 moved the camera off `GameRenderer`)
+- Retargeted every mixin at its 26.x name: `advanceWeatherCycle`, `setClear`/`setRain`/`setThunder`, `getPrecipitationAt`, `setupFog`, `extractRenderState`
+- Requires Java 25 and Fabric Loader 0.19.5+; mixin compatibility level raised to `JAVA_25`
+- Jars are now named `localweather-<mod version>+<minecraft version>.jar`
+
+### Notes
+- The Quilt jar is still produced but is **untested** on 26.x: `quilt.mod.json` still declares an intermediary mapping namespace that no longer exists for an unobfuscated game
+- The `neoforge/` workspace still targets 1.21.11 and has not been moved to 26.x
 
 ## [1.3.0] - 2026-08-04
 

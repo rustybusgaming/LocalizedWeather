@@ -5,8 +5,8 @@ import net.fentbusgaming.localweather.weather.StormCellManager;
 import net.fentbusgaming.localweather.weather.WeatherZone;
 import net.fentbusgaming.localweather.weather.WeatherZoneManager;
 import net.fentbusgaming.localweather.weather.WindState;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.core.BlockPos;
 
 import java.util.List;
 
@@ -14,7 +14,7 @@ import java.util.List;
  * Public API for other mods to query localized weather information.
  *
  * <p>All methods are thread-safe and can be called from any context that has
- * access to a {@link ServerWorld}.</p>
+ * access to a {@link ServerLevel}.</p>
  *
  * <h2>Usage example:</h2>
  * <pre>{@code
@@ -35,7 +35,7 @@ public final class LocalWeatherAPI {
      * @param pos   the block position to check
      * @return the current weather type at that position
      */
-    public static WeatherZone.WeatherType getWeatherAt(ServerWorld world, BlockPos pos) {
+    public static WeatherZone.WeatherType getWeatherAt(ServerLevel world, BlockPos pos) {
         int zoneX = (pos.getX() >> 4) >> 4; // blockX -> chunkX -> zoneX
         int zoneZ = (pos.getZ() >> 4) >> 4;
         return getWeatherInZone(world, zoneX, zoneZ);
@@ -49,7 +49,7 @@ public final class LocalWeatherAPI {
      * @param zoneZ the zone Z coordinate
      * @return the current weather type, or CLEAR if the zone hasn't been loaded
      */
-    public static WeatherZone.WeatherType getWeatherInZone(ServerWorld world, int zoneX, int zoneZ) {
+    public static WeatherZone.WeatherType getWeatherInZone(ServerLevel world, int zoneX, int zoneZ) {
         WeatherZone zone = WeatherZoneManager.getZone(world, zoneX, zoneZ);
         if (zone == null) {
             return WeatherZone.WeatherType.CLEAR;
@@ -65,7 +65,7 @@ public final class LocalWeatherAPI {
      * @param zoneZ the zone Z coordinate
      * @return the target weather type, or CLEAR if the zone hasn't been loaded
      */
-    public static WeatherZone.WeatherType getTargetWeatherInZone(ServerWorld world, int zoneX, int zoneZ) {
+    public static WeatherZone.WeatherType getTargetWeatherInZone(ServerLevel world, int zoneX, int zoneZ) {
         WeatherZone zone = WeatherZoneManager.getZone(world, zoneX, zoneZ);
         if (zone == null) {
             return WeatherZone.WeatherType.CLEAR;
@@ -81,7 +81,7 @@ public final class LocalWeatherAPI {
      * @param zoneZ the zone Z coordinate
      * @return the transition progress, or 1.0 if the zone hasn't been loaded
      */
-    public static float getTransitionProgress(ServerWorld world, int zoneX, int zoneZ) {
+    public static float getTransitionProgress(ServerLevel world, int zoneX, int zoneZ) {
         WeatherZone zone = WeatherZoneManager.getZone(world, zoneX, zoneZ);
         if (zone == null) {
             return 1.0f;
@@ -96,7 +96,7 @@ public final class LocalWeatherAPI {
      * @param pos   the block position
      * @return true if rain or thunder is active at this position
      */
-    public static boolean isRainingAt(ServerWorld world, BlockPos pos) {
+    public static boolean isRainingAt(ServerLevel world, BlockPos pos) {
         WeatherZone.WeatherType weather = getWeatherAt(world, pos);
         return weather == WeatherZone.WeatherType.RAIN
                 || weather == WeatherZone.WeatherType.THUNDER
@@ -111,7 +111,7 @@ public final class LocalWeatherAPI {
      * @param pos   the block position
      * @return true if thunder is active at this position
      */
-    public static boolean isThunderingAt(ServerWorld world, BlockPos pos) {
+    public static boolean isThunderingAt(ServerLevel world, BlockPos pos) {
         return getWeatherAt(world, pos) == WeatherZone.WeatherType.THUNDER;
     }
 
@@ -122,7 +122,7 @@ public final class LocalWeatherAPI {
      * @param pos   the block position
      * @return true if hail is active at this position
      */
-    public static boolean isHailingAt(ServerWorld world, BlockPos pos) {
+    public static boolean isHailingAt(ServerLevel world, BlockPos pos) {
         return getWeatherAt(world, pos) == WeatherZone.WeatherType.HAIL;
     }
 
@@ -135,7 +135,7 @@ public final class LocalWeatherAPI {
      * @param world the server world
      * @return an immutable snapshot of the live cells, possibly empty
      */
-    public static List<StormCell> getStormCells(ServerWorld world) {
+    public static List<StormCell> getStormCells(ServerLevel world) {
         return StormCellManager.getCells(world);
     }
 
@@ -146,7 +146,7 @@ public final class LocalWeatherAPI {
      * @param pos   the block position
      * @return the strongest cell covering the position, or null if none does
      */
-    public static StormCell getStormCellAt(ServerWorld world, BlockPos pos) {
+    public static StormCell getStormCellAt(ServerLevel world, BlockPos pos) {
         return StormCellManager.getCellAt(world, pos.getX(), pos.getZ());
     }
 
@@ -157,7 +157,7 @@ public final class LocalWeatherAPI {
      * @param pos   the block position
      * @return true if a storm cell covers this position
      */
-    public static boolean isInStormCell(ServerWorld world, BlockPos pos) {
+    public static boolean isInStormCell(ServerLevel world, BlockPos pos) {
         return getStormCellAt(world, pos) != null;
     }
 

@@ -3,11 +3,11 @@ package net.fentbusgaming.localweather.mixin;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fentbusgaming.localweather.network.ClientWeatherHandler;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.client.render.fog.AtmosphericFogModifier;
-import net.minecraft.client.render.fog.FogData;
-import net.minecraft.client.world.ClientWorld;
+import net.minecraft.client.Camera;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.renderer.fog.environment.AtmosphericFogEnvironment;
+import net.minecraft.client.renderer.fog.FogData;
+import net.minecraft.client.multiplayer.ClientLevel;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -19,19 +19,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * the feeling of an approaching weather front.
  */
 @Environment(EnvType.CLIENT)
-@Mixin(AtmosphericFogModifier.class)
+@Mixin(AtmosphericFogEnvironment.class)
 public abstract class FogMixin {
 
     /**
      * After vanilla applies atmospheric fog, tighten the fog end distance when near storms
      * to create a hazy, overcast look in the direction of an approaching storm.
      */
-    @Inject(method = "applyStartEndModifier", at = @At("RETURN"))
+    @Inject(method = "setupFog", at = @At("RETURN"))
     private void localweather$stormFog(FogData fogData,
                                        Camera camera,
-                                       ClientWorld world,
+                                       ClientLevel world,
                                        float viewDistance,
-                                       RenderTickCounter tickCounter,
+                                       DeltaTracker tickCounter,
                                        CallbackInfo ci) {
         float rain = ClientWeatherHandler.getRainDarkening();
         float thunder = ClientWeatherHandler.getThunderDarkening();

@@ -5,8 +5,8 @@ import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fentbusgaming.localweather.LocalWeatherMod;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.world.ClientWorld;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
 
 import java.util.Collection;
 import java.util.Map;
@@ -37,7 +37,7 @@ public final class ClientStormCellHandler {
 
     private static final Map<Integer, StormCellState> CELLS = new ConcurrentHashMap<>();
 
-    private static ClientWorld activeWorld;
+    private static ClientLevel activeWorld;
 
     private ClientStormCellHandler() {}
 
@@ -165,8 +165,8 @@ public final class ClientStormCellHandler {
         LocalWeatherMod.LOGGER.info("[LocalWeather] Client storm cell handler registered.");
     }
 
-    private static void onClientTick(MinecraftClient client) {
-        ClientWorld world = client.world;
+    private static void onClientTick(Minecraft client) {
+        ClientLevel world = client.level;
         if (world != activeWorld) {
             activeWorld = world;
             CELLS.clear();

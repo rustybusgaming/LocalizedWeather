@@ -5,12 +5,12 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fentbusgaming.localweather.LocalWeatherMod;
 import net.fentbusgaming.localweather.weather.StormCell;
 import net.fentbusgaming.localweather.weather.WeatherZone;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.codec.PacketCodecs;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.resources.Identifier;
 
 /**
  * Handles all network packets for LocalWeather.
@@ -27,13 +27,13 @@ import net.minecraft.util.Identifier;
 public final class WeatherPackets {
 
     public static final Identifier WEATHER_UPDATE_ID =
-            Identifier.of(LocalWeatherMod.MOD_ID, "weather_update");
+            Identifier.fromNamespaceAndPath(LocalWeatherMod.MOD_ID, "weather_update");
 
     public static final Identifier WIND_UPDATE_ID =
-            Identifier.of(LocalWeatherMod.MOD_ID, "wind_update");
+            Identifier.fromNamespaceAndPath(LocalWeatherMod.MOD_ID, "wind_update");
 
     public static final Identifier STORM_CELL_ID =
-            Identifier.of(LocalWeatherMod.MOD_ID, "storm_cell");
+            Identifier.fromNamespaceAndPath(LocalWeatherMod.MOD_ID, "storm_cell");
 
     private WeatherPackets() {}
 
@@ -56,23 +56,23 @@ public final class WeatherPackets {
             float transitionProgress,
             int zoneX,
             int zoneZ
-    ) implements CustomPayload {
+    ) implements CustomPacketPayload {
 
-        public static final CustomPayload.Id<WeatherUpdatePayload> ID =
-                new CustomPayload.Id<>(WEATHER_UPDATE_ID);
+        public static final CustomPacketPayload.Type<WeatherUpdatePayload> ID =
+                new CustomPacketPayload.Type<>(WEATHER_UPDATE_ID);
 
-        public static final PacketCodec<RegistryByteBuf, WeatherUpdatePayload> CODEC =
-                PacketCodec.tuple(
-                        PacketCodecs.VAR_INT, WeatherUpdatePayload::currentWeatherOrdinal,
-                        PacketCodecs.VAR_INT, WeatherUpdatePayload::targetWeatherOrdinal,
-                        PacketCodecs.FLOAT,   WeatherUpdatePayload::transitionProgress,
-                        PacketCodecs.VAR_INT, WeatherUpdatePayload::zoneX,
-                        PacketCodecs.VAR_INT, WeatherUpdatePayload::zoneZ,
+        public static final StreamCodec<RegistryFriendlyByteBuf, WeatherUpdatePayload> CODEC =
+                StreamCodec.composite(
+                        ByteBufCodecs.VAR_INT, WeatherUpdatePayload::currentWeatherOrdinal,
+                        ByteBufCodecs.VAR_INT, WeatherUpdatePayload::targetWeatherOrdinal,
+                        ByteBufCodecs.FLOAT,   WeatherUpdatePayload::transitionProgress,
+                        ByteBufCodecs.VAR_INT, WeatherUpdatePayload::zoneX,
+                        ByteBufCodecs.VAR_INT, WeatherUpdatePayload::zoneZ,
                         WeatherUpdatePayload::new
                 );
 
         @Override
-        public CustomPayload.Id<? extends CustomPayload> getId() {
+        public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
             return ID;
         }
     }
@@ -83,20 +83,20 @@ public final class WeatherPackets {
     public record WindUpdatePayload(
             float windDirX,
             float windDirZ
-    ) implements CustomPayload {
+    ) implements CustomPacketPayload {
 
-        public static final CustomPayload.Id<WindUpdatePayload> ID =
-                new CustomPayload.Id<>(WIND_UPDATE_ID);
+        public static final CustomPacketPayload.Type<WindUpdatePayload> ID =
+                new CustomPacketPayload.Type<>(WIND_UPDATE_ID);
 
-        public static final PacketCodec<RegistryByteBuf, WindUpdatePayload> CODEC =
-                PacketCodec.tuple(
-                        PacketCodecs.FLOAT, WindUpdatePayload::windDirX,
-                        PacketCodecs.FLOAT, WindUpdatePayload::windDirZ,
+        public static final StreamCodec<RegistryFriendlyByteBuf, WindUpdatePayload> CODEC =
+                StreamCodec.composite(
+                        ByteBufCodecs.FLOAT, WindUpdatePayload::windDirX,
+                        ByteBufCodecs.FLOAT, WindUpdatePayload::windDirZ,
                         WindUpdatePayload::new
                 );
 
         @Override
-        public CustomPayload.Id<? extends CustomPayload> getId() {
+        public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
             return ID;
         }
     }
@@ -119,25 +119,25 @@ public final class WeatherPackets {
             float velZ,
             float radius,
             float intensity
-    ) implements CustomPayload {
+    ) implements CustomPacketPayload {
 
-        public static final CustomPayload.Id<StormCellPayload> ID =
-                new CustomPayload.Id<>(STORM_CELL_ID);
+        public static final CustomPacketPayload.Type<StormCellPayload> ID =
+                new CustomPacketPayload.Type<>(STORM_CELL_ID);
 
-        public static final PacketCodec<RegistryByteBuf, StormCellPayload> CODEC =
-                PacketCodec.tuple(
-                        PacketCodecs.VAR_INT, StormCellPayload::cellId,
-                        PacketCodecs.DOUBLE,  StormCellPayload::x,
-                        PacketCodecs.DOUBLE,  StormCellPayload::z,
-                        PacketCodecs.FLOAT,   StormCellPayload::velX,
-                        PacketCodecs.FLOAT,   StormCellPayload::velZ,
-                        PacketCodecs.FLOAT,   StormCellPayload::radius,
-                        PacketCodecs.FLOAT,   StormCellPayload::intensity,
+        public static final StreamCodec<RegistryFriendlyByteBuf, StormCellPayload> CODEC =
+                StreamCodec.composite(
+                        ByteBufCodecs.VAR_INT, StormCellPayload::cellId,
+                        ByteBufCodecs.DOUBLE,  StormCellPayload::x,
+                        ByteBufCodecs.DOUBLE,  StormCellPayload::z,
+                        ByteBufCodecs.FLOAT,   StormCellPayload::velX,
+                        ByteBufCodecs.FLOAT,   StormCellPayload::velZ,
+                        ByteBufCodecs.FLOAT,   StormCellPayload::radius,
+                        ByteBufCodecs.FLOAT,   StormCellPayload::intensity,
                         StormCellPayload::new
                 );
 
         @Override
-        public CustomPayload.Id<? extends CustomPayload> getId() {
+        public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
             return ID;
         }
     }
@@ -147,15 +147,15 @@ public final class WeatherPackets {
     // -------------------------------------------------------------------------
 
     public static void registerServerPackets() {
-        PayloadTypeRegistry.playS2C().register(
+        PayloadTypeRegistry.clientboundPlay().register(
                 WeatherUpdatePayload.ID,
                 WeatherUpdatePayload.CODEC
         );
-        PayloadTypeRegistry.playS2C().register(
+        PayloadTypeRegistry.clientboundPlay().register(
                 WindUpdatePayload.ID,
                 WindUpdatePayload.CODEC
         );
-        PayloadTypeRegistry.playS2C().register(
+        PayloadTypeRegistry.clientboundPlay().register(
                 StormCellPayload.ID,
                 StormCellPayload.CODEC
         );
@@ -166,7 +166,7 @@ public final class WeatherPackets {
     // Sending
     // -------------------------------------------------------------------------
 
-    public static void sendWeatherUpdate(ServerPlayerEntity player, WeatherZone zone) {
+    public static void sendWeatherUpdate(ServerPlayer player, WeatherZone zone) {
         WeatherUpdatePayload payload = new WeatherUpdatePayload(
                                 zone.getCurrentWeather().ordinal(),
                                 zone.getTargetWeather().ordinal(),
@@ -177,12 +177,12 @@ public final class WeatherPackets {
         ServerPlayNetworking.send(player, payload);
     }
 
-    public static void sendWindUpdate(ServerPlayerEntity player, double windDirX, double windDirZ) {
+    public static void sendWindUpdate(ServerPlayer player, double windDirX, double windDirZ) {
         WindUpdatePayload payload = new WindUpdatePayload((float) windDirX, (float) windDirZ);
         ServerPlayNetworking.send(player, payload);
     }
 
-    public static void sendStormCell(ServerPlayerEntity player, StormCell cell) {
+    public static void sendStormCell(ServerPlayer player, StormCell cell) {
         StormCellPayload payload = new StormCellPayload(
                 cell.getId(),
                 cell.getX(),

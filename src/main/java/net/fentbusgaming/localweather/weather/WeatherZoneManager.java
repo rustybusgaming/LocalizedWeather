@@ -3,14 +3,14 @@ package net.fentbusgaming.localweather.weather;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fentbusgaming.localweather.LocalWeatherMod;
 import net.fentbusgaming.localweather.network.WeatherPackets;
-import net.minecraft.registry.RegistryKey;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.world.World;
-import net.minecraft.world.Heightmap;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.levelgen.Heightmap;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -39,11 +39,11 @@ public class WeatherZoneManager {
     /**
      * Zones indexed by world key → zone key (packed long of zoneX,zoneZ).
      */
-    private static final Map<RegistryKey<World>, Map<Long, WeatherZone>> WORLD_ZONES =
+    private static final Map<ResourceKey<Level>, Map<Long, WeatherZone>> WORLD_ZONES =
             new ConcurrentHashMap<>();
 
     /** Tracks which zones changed this tick and need network sync. */
-    private static final Map<RegistryKey<World>, Set<Long>> DIRTY_ZONES =
+    private static final Map<ResourceKey<Level>, Set<Long>> DIRTY_ZONES =
             new ConcurrentHashMap<>();
 
     private static final Random RANDOM = new Random();
@@ -71,7 +71,7 @@ public class WeatherZoneManager {
     private static void onServerTick(MinecraftServer server) {
         WindState.tick();
 
-        for (ServerWorld world : server.getWorlds()) {
+        for (ServerLevel world : server.getAllLevels()) {
             tickWorld(world);
         }
 
@@ -91,8 +91,8 @@ public class WeatherZoneManager {
         }
     }
 
-    private static void tickWorld(ServerWorld world) {
-        RegistryKey<World> key = world.getRegistryKey();
+    private static void tickWorld(ServerLevel world) {
+        ResourceKey<Level> key = world.dimension();
         Map<Long, WeatherZone> zones = WORLD_ZONES.computeIfAbsent(key, k -> new ConcurrentHashMap<>());
         Set<Long> activeZoneKeys = getActiveZoneKeys(world);
 
@@ -116,17 +116,17 @@ public class WeatherZoneManager {
                     zone.setTargetWeather(next);
                     zone.setWeatherDuration(duration);
                 }
-                markDirty(world.getRegistryKey(), zoneKey);
+                markDirty(world.dimension(), zoneKey);
             }
         }
     }
 
-    private static Set<Long> getActiveZoneKeys(ServerWorld world) {
+    private static Set<Long> getActiveZoneKeys(ServerLevel world) {
         Set<Long> activeZoneKeys = new HashSet<>();
-        for (ServerPlayerEntity player : world.getPlayers()) {
-            ChunkPos chunkPos = player.getChunkPos();
-            int centerZoneX = chunkPos.x >> 4;
-            int centerZoneZ = chunkPos.z >> 4;
+        for (ServerPlayer player : world.players()) {
+            ChunkPos chunkPos = player.chunkPosition();
+            int centerZoneX = chunkPos.x() >> 4;
+            int centerZoneZ = chunkPos.z() >> 4;
             for (int dx = -CLIENT_ZONE_RADIUS; dx <= CLIENT_ZONE_RADIUS; dx++) {
                 for (int dz = -CLIENT_ZONE_RADIUS; dz <= CLIENT_ZONE_RADIUS; dz++) {
                     activeZoneKeys.add(pack(centerZoneX + dx, centerZoneZ + dz));
@@ -143,15 +143,15 @@ public class WeatherZoneManager {
     /**
      * Get (or lazily create) the weather zone for the chunk a player is standing in.
      */
-    public static WeatherZone getOrCreateZoneForPlayer(ServerWorld world, ServerPlayerEntity player) {
-        ChunkPos chunkPos = player.getChunkPos();
-        int zoneX = chunkPos.x >> 4;
-        int zoneZ = chunkPos.z >> 4;
+    public static WeatherZone getOrCreateZoneForPlayer(ServerLevel world, ServerPlayer player) {
+        ChunkPos chunkPos = player.chunkPosition();
+        int zoneX = chunkPos.x() >> 4;
+        int zoneZ = chunkPos.z() >> 4;
         return getOrCreateZone(world, zoneX, zoneZ);
     }
 
-    public static WeatherZone getOrCreateZone(ServerWorld world, int zoneX, int zoneZ) {
-        RegistryKey<World> key = world.getRegistryKey();
+    public static WeatherZone getOrCreateZone(ServerLevel world, int zoneX, int zoneZ) {
+        ResourceKey<Level> key = world.dimension();
         Map<Long, WeatherZone> zones = WORLD_ZONES.computeIfAbsent(key, k -> new ConcurrentHashMap<>());
         long packed = pack(zoneX, zoneZ);
         return zones.computeIfAbsent(packed, k -> createZone(world, zoneX, zoneZ));
@@ -160,14 +160,14 @@ public class WeatherZoneManager {
     /**
      * Get an existing zone without creating it. Returns null if the zone hasn't been loaded.
      */
-    public static WeatherZone getZone(ServerWorld world, int zoneX, int zoneZ) {
-        RegistryKey<World> key = world.getRegistryKey();
+    public static WeatherZone getZone(ServerLevel world, int zoneX, int zoneZ) {
+        ResourceKey<Level> key = world.dimension();
         Map<Long, WeatherZone> zones = WORLD_ZONES.get(key);
         if (zones == null) return null;
         return zones.get(pack(zoneX, zoneZ));
     }
 
-    private static WeatherZone createZone(ServerWorld world, int zoneX, int zoneZ) {
+    private static WeatherZone createZone(ServerLevel world, int zoneX, int zoneZ) {
         WeatherZone.WeatherType initial = pickInitialWeather(world, zoneX, zoneZ);
         int duration = randomDuration(initial);
         return new WeatherZone(zoneX, zoneZ, initial, duration);
@@ -177,7 +177,7 @@ public class WeatherZoneManager {
     // Weather Selection
     // -------------------------------------------------------------------------
 
-    private static WeatherZone.WeatherType pickInitialWeather(ServerWorld world, int zoneX, int zoneZ) {
+    private static WeatherZone.WeatherType pickInitialWeather(ServerLevel world, int zoneX, int zoneZ) {
         // ~70% clear on first load to avoid a rainy world on first join
         if (RANDOM.nextFloat() < 0.70f) {
             return WeatherZone.WeatherType.CLEAR;
@@ -186,13 +186,13 @@ public class WeatherZoneManager {
     }
 
     private static WeatherZone.WeatherType pickNewWeather(
-            ServerWorld world, WeatherZone zone, int zoneX, int zoneZ) {
+            ServerLevel world, WeatherZone zone, int zoneX, int zoneZ) {
 
         WeatherZone.WeatherType current = zone.getCurrentWeather();
 
         // Check the upwind neighbor — weather fronts drift with the wind
         int[] upwind = WindState.getUpwindZone(zoneX, zoneZ);
-        RegistryKey<World> key = world.getRegistryKey();
+        ResourceKey<Level> key = world.dimension();
         Map<Long, WeatherZone> zones = WORLD_ZONES.get(key);
         WeatherZone upwindZone = (zones != null) ? zones.get(pack(upwind[0], upwind[1])) : null;
 
@@ -242,7 +242,7 @@ public class WeatherZoneManager {
      * determining weather for all 256 by 256 blocks.
      */
     private static WeatherZone.WeatherType applyBiomeRules(
-            ServerWorld world, int zoneX, int zoneZ, WeatherZone.WeatherType requested) {
+            ServerLevel world, int zoneX, int zoneZ, WeatherZone.WeatherType requested) {
 
         if (requested == WeatherZone.WeatherType.CLEAR) {
             return WeatherZone.WeatherType.CLEAR;
@@ -257,8 +257,8 @@ public class WeatherZoneManager {
             for (int sampleZ = 0; sampleZ < BIOME_SAMPLES_PER_SIDE; sampleZ++) {
                 int blockX = zoneStartX + ((sampleX * 2 + 1) * zoneSize) / (BIOME_SAMPLES_PER_SIDE * 2);
                 int blockZ = zoneStartZ + ((sampleZ * 2 + 1) * zoneSize) / (BIOME_SAMPLES_PER_SIDE * 2);
-                int surfaceY = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, blockX, blockZ) - 1;
-                BlockPos samplePos = new BlockPos(blockX, Math.max(world.getBottomY(), surfaceY), blockZ);
+                int surfaceY = world.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, blockX, blockZ) - 1;
+                BlockPos samplePos = new BlockPos(blockX, Math.max(world.getMinY(), surfaceY), blockZ);
                 WeatherZone.WeatherType resolved = BiomeWeatherRules.resolveWeather(world.getBiome(samplePos), requested);
                 weatherCounts.merge(resolved, 1, Integer::sum);
             }
@@ -282,14 +282,14 @@ public class WeatherZoneManager {
     // Network Sync
     // -------------------------------------------------------------------------
 
-    public static void markDirty(RegistryKey<World> worldKey, long zoneKey) {
+    public static void markDirty(ResourceKey<Level> worldKey, long zoneKey) {
         DIRTY_ZONES.computeIfAbsent(worldKey, k -> Collections.synchronizedSet(new HashSet<>()))
                 .add(zoneKey);
     }
 
     private static void broadcastAllDirtyZones(MinecraftServer server, boolean sendWind) {
-        for (ServerWorld world : server.getWorlds()) {
-            RegistryKey<World> worldKey = world.getRegistryKey();
+        for (ServerLevel world : server.getAllLevels()) {
+            ResourceKey<Level> worldKey = world.dimension();
             Set<Long> dirty = DIRTY_ZONES.remove(worldKey);
             Map<Long, WeatherZone> zones = WORLD_ZONES.get(worldKey);
             if (dirty == null || zones == null) continue;
@@ -307,11 +307,11 @@ public class WeatherZoneManager {
     /**
      * Send zone weather update to all players whose current zone matches this zone.
      */
-    private static void sendZoneToNearbyPlayers(ServerWorld world, WeatherZone zone) {
-        for (ServerPlayerEntity player : world.getPlayers()) {
-            ChunkPos chunkPos = player.getChunkPos();
-            int pZoneX = chunkPos.x >> 4;
-            int pZoneZ = chunkPos.z >> 4;
+    private static void sendZoneToNearbyPlayers(ServerLevel world, WeatherZone zone) {
+        for (ServerPlayer player : world.players()) {
+            ChunkPos chunkPos = player.chunkPosition();
+            int pZoneX = chunkPos.x() >> 4;
+            int pZoneZ = chunkPos.z() >> 4;
 
             // Send to players in this zone and adjacent zones (so transitions look smooth at borders)
             if (Math.abs(pZoneX - zone.getZoneX()) <= 1 && Math.abs(pZoneZ - zone.getZoneZ()) <= 1) {
@@ -330,14 +330,14 @@ public class WeatherZoneManager {
         double windZ = WindState.getWindDirZ();
         Set<UUID> onlinePlayers = new HashSet<>();
 
-        for (ServerWorld world : server.getWorlds()) {
-            for (ServerPlayerEntity player : world.getPlayers()) {
-                UUID playerId = player.getUuid();
+        for (ServerLevel world : server.getAllLevels()) {
+            for (ServerPlayer player : world.players()) {
+                UUID playerId = player.getUUID();
                 onlinePlayers.add(playerId);
-                ChunkPos chunkPos = player.getChunkPos();
-                int centerZoneX = chunkPos.x >> 4;
-                int centerZoneZ = chunkPos.z >> 4;
-                PlayerZonePosition position = new PlayerZonePosition(world.getRegistryKey(), centerZoneX, centerZoneZ);
+                ChunkPos chunkPos = player.chunkPosition();
+                int centerZoneX = chunkPos.x() >> 4;
+                int centerZoneZ = chunkPos.z() >> 4;
+                PlayerZonePosition position = new PlayerZonePosition(world.dimension(), centerZoneX, centerZoneZ);
                 boolean enteredNewZone = !position.equals(PLAYER_ZONE_POSITIONS.put(playerId, position));
 
                 if (sendWind || enteredNewZone) {
@@ -353,7 +353,7 @@ public class WeatherZoneManager {
         PLAYER_ZONE_POSITIONS.keySet().retainAll(onlinePlayers);
     }
 
-    private static void sendNearbyZones(ServerPlayerEntity player, ServerWorld world, int centerZoneX, int centerZoneZ) {
+    private static void sendNearbyZones(ServerPlayer player, ServerLevel world, int centerZoneX, int centerZoneZ) {
         for (int dx = -CLIENT_ZONE_RADIUS; dx <= CLIENT_ZONE_RADIUS; dx++) {
             for (int dz = -CLIENT_ZONE_RADIUS; dz <= CLIENT_ZONE_RADIUS; dz++) {
                 WeatherZone zone = getOrCreateZone(world, centerZoneX + dx, centerZoneZ + dz);
@@ -379,7 +379,7 @@ public class WeatherZoneManager {
     }
 
     /** Clear all zones for a world (e.g. on world unload). */
-    public static void clearWorld(RegistryKey<World> worldKey) {
+    public static void clearWorld(ResourceKey<Level> worldKey) {
         WORLD_ZONES.remove(worldKey);
         DIRTY_ZONES.remove(worldKey);
         StormCellManager.clearWorld(worldKey);
@@ -389,21 +389,21 @@ public class WeatherZoneManager {
     /**
      * Force a zone to a specific weather state immediately.
      */
-    public static void forceWeatherAt(ServerWorld world, int zoneX, int zoneZ, WeatherZone.WeatherType weather, int duration) {
+    public static void forceWeatherAt(ServerLevel world, int zoneX, int zoneZ, WeatherZone.WeatherType weather, int duration) {
         WeatherZone zone = getOrCreateZone(world, zoneX, zoneZ);
         zone.forceWeather(weather, duration);
         long zoneKey = pack(zoneX, zoneZ);
-        markDirty(world.getRegistryKey(), zoneKey);
+        markDirty(world.dimension(), zoneKey);
 
-        for (ServerPlayerEntity player : world.getPlayers()) {
-            ChunkPos chunkPos = player.getChunkPos();
-            int pZoneX = chunkPos.x >> 4;
-            int pZoneZ = chunkPos.z >> 4;
+        for (ServerPlayer player : world.players()) {
+            ChunkPos chunkPos = player.chunkPosition();
+            int pZoneX = chunkPos.x() >> 4;
+            int pZoneZ = chunkPos.z() >> 4;
             if (Math.abs(pZoneX - zoneX) <= 1 && Math.abs(pZoneZ - zoneZ) <= 1) {
                 WeatherPackets.sendWeatherUpdate(player, zone);
             }
         }
     }
 
-    private record PlayerZonePosition(RegistryKey<World> worldKey, int zoneX, int zoneZ) {}
+    private record PlayerZonePosition(ResourceKey<Level> worldKey, int zoneX, int zoneZ) {}
 }

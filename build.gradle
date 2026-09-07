@@ -1,9 +1,38 @@
 plugins {
-    id 'fabric-loom' version '1.16-SNAPSHOT'
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
     id 'maven-publish'
 }
 
-version = project.mod_version
+// ---------------------------------------------------------------------------
+// Version targeting
+//
+// Every supported Minecraft line has a file in versions/. Pick one with
+// -Pmc=<name>, e.g. ./gradlew build -Pmc=26.2. Without it the target named by
+// default_target in gradle.properties is used.
+//
+// Minecraft is no longer obfuscated as of 26.1, so there are no intermediary or
+// Yarn mappings in the dependency block — the game ships Mojang's own names and
+// Loom compiles straight against them.
+// ---------------------------------------------------------------------------
+
+def target = providers.gradleProperty('mc').getOrElse(project.default_target)
+def targetFile = file("versions/${target}.properties")
+if (!targetFile.exists()) {
+    def available = fileTree('versions').files.collect { it.name - '.properties' }.sort()
+    throw new GradleException("Unknown target '${target}'. Available targets: ${available.join(', ')}")
+}
+
+def targetProps = new Properties()
+targetFile.withInputStream { targetProps.load(it) }
+
+ext {
+    minecraft_version = targetProps.getProperty('minecraft_version')
+    fabric_api_version = targetProps.getProperty('fabric_api_version')
+    minecraft_dependency = targetProps.getProperty('minecraft_dependency')
+    java_release = targetProps.getProperty('java_release') as int
+}
+
+version = "${project.mod_version}+${minecraft_version}"
 group = project.maven_group
 
 base {
@@ -11,8 +40,8 @@ base {
 }
 
 repositories {
-    maven { url "https://maven.isxander.dev/releases" }
-    maven { url "https://api.modrinth.com/maven" }
+    maven { url = "https://maven.isxander.dev/releases" }
+    maven { url = "https://api.modrinth.com/maven" }
 }
 
 loom {
@@ -27,50 +56,67 @@ loom {
 }
 
 dependencies {
-    // To change the versions see the gradle.properties file
-    minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-
-    // Mod Menu
-    modRuntimeOnly "maven.modrinth:modmenu:17.0.0"
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
 }
 
 processResources {
     inputs.property "version", project.version
+    inputs.property "minecraft_dependency", minecraft_dependency
+    inputs.property "java_release", java_release
 
     filesMatching(["fabric.mod.json", "quilt.mod.json"]) {
-        expand "version": project.version
+        expand(
+                "version": project.version,
+                "minecraft_dependency": minecraft_dependency,
+                "loader_version": project.loader_version,
+                "java_release": java_release
+        )
     }
 }
 
-tasks.withType(JavaCompile).configureEach {
-    it.options.release = 21
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(java_release)
+    }
+    withSourcesJar()
 }
 
-java {
-    withSourcesJar()
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = java_release
 }
 
 jar {
     from("LICENSE") {
-        rename { "${it}_${project.archivesBaseName}" }
+        rename { "${it}_${project.base.archivesName.get()}" }
     }
 }
 
+// Minecraft ships unobfuscated from 26.1, so Loom has no remap step and the
+// jar task already produces the shippable artifact.
 tasks.register("quiltJar", Jar) {
-    dependsOn tasks.remapJar
+    dependsOn tasks.jar
     archiveClassifier = "quilt"
 
     from {
-        zipTree(tasks.remapJar.archiveFile)
+        zipTree(tasks.jar.archiveFile)
     }
     exclude "fabric.mod.json"
 }
 
 tasks.named("build") {
     dependsOn tasks.named("quiltJar")
+}
+
+/** Prints the resolved target, so CI and scripts do not have to parse properties. */
+tasks.register("printTarget") {
+    doLast {
+        println "target=${target}"
+        println "minecraft_version=${minecraft_version}"
+        println "fabric_api_version=${fabric_api_version}"
+        println "minecraft_dependency=${minecraft_dependency}"
+        println "java_release=${java_release}"
+        println "mod_version=${project.version}"
+    }
 }

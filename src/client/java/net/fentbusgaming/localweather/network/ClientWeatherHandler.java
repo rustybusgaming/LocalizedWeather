@@ -7,8 +7,8 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fentbusgaming.localweather.LocalWeatherMod;
 import net.fentbusgaming.localweather.weather.WeatherZone;
 import net.fentbusgaming.localweather.weather.WeatherZoneManager;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.world.ClientWorld;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -60,7 +60,7 @@ public final class ClientWeatherHandler {
     private static double windDirZ = 0.0;
 
     /** The world whose zone cache is currently being rendered. */
-    private static ClientWorld activeWorld;
+    private static ClientLevel activeWorld;
 
     private ClientWeatherHandler() {}
 
@@ -156,8 +156,8 @@ public final class ClientWeatherHandler {
     // Per-tick smooth blending
     // -------------------------------------------------------------------------
 
-    private static void onClientTick(MinecraftClient client) {
-        ClientWorld world = client.world;
+    private static void onClientTick(Minecraft client) {
+        ClientLevel world = client.level;
         if (world != activeWorld) {
             activeWorld = world;
             ZONE_STATES.clear();
@@ -210,10 +210,10 @@ public final class ClientWeatherHandler {
         computeStormDirection(playerX, playerZ, playerZoneX, playerZoneZ);
 
         // Smoothly chase gradients
-        float currentRain = world.getRainGradient(1.0f);
-        float currentThunder = world.getThunderGradient(1.0f);
-        world.setRainGradient(smoothStep(currentRain, targetRainGradient, GRADIENT_SPEED));
-        world.setThunderGradient(smoothStep(currentThunder, targetThunderGradient, GRADIENT_SPEED));
+        float currentRain = world.getRainLevel(1.0f);
+        float currentThunder = world.getThunderLevel(1.0f);
+        world.setRainLevel(smoothStep(currentRain, targetRainGradient, GRADIENT_SPEED));
+        world.setThunderLevel(smoothStep(currentThunder, targetThunderGradient, GRADIENT_SPEED));
     }
 
     /**

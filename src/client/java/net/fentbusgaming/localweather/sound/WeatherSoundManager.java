@@ -6,10 +6,10 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fentbusgaming.localweather.network.ClientWeatherHandler;
 import net.fentbusgaming.localweather.weather.WeatherZone;
 import net.fentbusgaming.localweather.weather.WeatherZoneManager;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.sounds.SoundEvents;
 
 import java.util.Random;
 
@@ -64,8 +64,8 @@ public class WeatherSoundManager {
         ClientTickEvents.END_CLIENT_TICK.register(WeatherSoundManager::onTick);
     }
 
-    private static void onTick(MinecraftClient client) {
-        if (client.world == null || client.player == null) return;
+    private static void onTick(Minecraft client) {
+        if (client.level == null || client.player == null) return;
         if (client.isPaused()) return;
 
         tickRainAmbient(client);
@@ -86,14 +86,14 @@ public class WeatherSoundManager {
      *       zone, creating clear left/right stereo separation.</li>
      * </ul>
      */
-    private static void tickRainAmbient(MinecraftClient client) {
+    private static void tickRainAmbient(Minecraft client) {
         if (++rainTicks < RAIN_INTERVAL) return;
         rainTicks = 0;
 
         double playerX = client.player.getX();
         double playerY = client.player.getY();
         double playerZ = client.player.getZ();
-        ClientWorld world = client.world;
+        ClientLevel world = client.level;
 
         int soundsPlayed = 0;
 
@@ -151,8 +151,8 @@ public class WeatherSoundManager {
                     ? 1.25f + RANDOM.nextFloat() * 0.25f
                     : 0.85f + RANDOM.nextFloat() * 0.25f;
 
-            world.playSoundClient(soundX, soundY, soundZ,
-                    SoundEvents.WEATHER_RAIN, SoundCategory.WEATHER,
+            world.playLocalSound(soundX, soundY, soundZ,
+                    SoundEvents.WEATHER_RAIN, SoundSource.WEATHER,
                     volume, pitch, false);
             soundsPlayed++;
         }
@@ -170,7 +170,7 @@ public class WeatherSoundManager {
      * <p>Only considers thunder zones beyond {@link #MIN_DISTANT_DIST} so it
      * does not overlap with {@link DirectionalThunderSound}'s close thunder.</p>
      */
-    private static void tickDistantStorm(MinecraftClient client) {
+    private static void tickDistantStorm(Minecraft client) {
         if (--distantStormTicks > 0) return;
         distantStormTicks = DISTANT_STORM_MIN_INTERVAL
                 + RANDOM.nextInt(DISTANT_STORM_MAX_INTERVAL - DISTANT_STORM_MIN_INTERVAL);
@@ -223,9 +223,9 @@ public class WeatherSoundManager {
         volume = Math.min(volume, 3f);
         float pitch = 0.5f + RANDOM.nextFloat() * 0.25f;
 
-        ClientWorld world = client.world;
-        world.playSoundClient(soundX, soundY, soundZ,
-                SoundEvents.ENTITY_LIGHTNING_BOLT_THUNDER,
-                SoundCategory.WEATHER, volume, pitch, false);
+        ClientLevel world = client.level;
+        world.playLocalSound(soundX, soundY, soundZ,
+                SoundEvents.LIGHTNING_BOLT_THUNDER,
+                SoundSource.WEATHER, volume, pitch, false);
     }
 }

@@ -2,16 +2,14 @@ package net.fentbusgaming.localweather.render;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.fentbusgaming.localweather.network.ClientStormCellHandler;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderLayers;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 
 /**
@@ -89,41 +87,40 @@ public class RainCurtainRenderer {
     private static final float DISTANCE_BOOST_PER_BLOCK = 1.0f / 6000.0f;
     private static final float MAX_DISTANCE_BOOST = 0.35f;
 
-    private static final RenderLayer CURTAIN_RENDER_LAYER = RenderLayers.translucentMovingBlock();
+    private static final RenderType CURTAIN_RENDER_LAYER = RenderTypes.translucentMovingBlock();
 
     public static void register() {
-        WorldRenderEvents.AFTER_ENTITIES.register(RainCurtainRenderer::render);
+        LevelRenderEvents.COLLECT_SUBMITS.register(RainCurtainRenderer::render);
     }
 
-    private static void render(WorldRenderContext context) {
+    private static void render(LevelRenderContext context) {
         if (!ClientStormCellHandler.hasCells()) return;
 
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.world == null) return;
+        Minecraft client = Minecraft.getInstance();
+        if (client.level == null) return;
 
-        VertexConsumerProvider consumers = context.consumers();
-        MatrixStack matrices = context.matrices();
-        if (consumers == null || matrices == null) return;
-
-        float tickDelta = client.getRenderTickCounter().getTickProgress(false);
-        Vec3d cam = client.gameRenderer.getCamera().getCameraPos();
-        double time = client.world.getTime() + tickDelta;
+        float tickDelta = client.getDeltaTracker().getGameTimeDeltaPartialTick(false);
+        Vec3 cam = context.levelState().cameraRenderState.pos;
+        double time = client.level.getGameTime() + tickDelta;
         double horizon = horizonDistance(client);
 
-        matrices.push();
-        Matrix4f mat = matrices.peek().getPositionMatrix();
-        VertexConsumer buffer = consumers.getBuffer(CURTAIN_RENDER_LAYER);
-
-        for (ClientStormCellHandler.StormCellState cell : ClientStormCellHandler.getCells()) {
-            renderCell(mat, buffer, cell, cam, tickDelta, time, horizon);
-        }
-
-        matrices.pop();
+        // 26.x renders the level from submitted nodes rather than from an
+        // immediate-mode buffer, so the curtain geometry is handed over as one
+        // custom-geometry node and built when the translucent pass runs.
+        context.submitNodeCollector().submitCustomGeometry(
+                context.poseStack(),
+                CURTAIN_RENDER_LAYER,
+                (pose, buffer) -> {
+                    Matrix4f mat = pose.pose();
+                    for (ClientStormCellHandler.StormCellState cell : ClientStormCellHandler.getCells()) {
+                        renderCell(mat, buffer, cell, cam, tickDelta, time, horizon);
+                    }
+                });
     }
 
     private static void renderCell(Matrix4f mat, VertexConsumer buffer,
                                    ClientStormCellHandler.StormCellState cell,
-                                   Vec3d cam, float tickDelta, double time, double horizon) {
+                                   Vec3 cam, float tickDelta, double time, double horizon) {
         float intensity = cell.getIntensity();
         if (intensity < 0.03f) return;
 
@@ -292,15 +289,15 @@ public class RainCurtainRenderer {
         int gTop = (int) lerp(BOTTOM_G, TOP_G, tTop);
         int bTop = (int) lerp(BOTTOM_B, TOP_B, tTop);
 
-        buffer.vertex(mat, xA0, y0, zA0).color(rBot, gBot, bBot, aBotA);
-        buffer.vertex(mat, xB0, y0, zB0).color(rBot, gBot, bBot, aBotB);
-        buffer.vertex(mat, xB1, y1, zB1).color(rTop, gTop, bTop, aTopB);
-        buffer.vertex(mat, xA1, y1, zA1).color(rTop, gTop, bTop, aTopA);
+        buffer.addVertex(mat, xA0, y0, zA0).setColor(rBot, gBot, bBot, aBotA);
+        buffer.addVertex(mat, xB0, y0, zB0).setColor(rBot, gBot, bBot, aBotB);
+        buffer.addVertex(mat, xB1, y1, zB1).setColor(rTop, gTop, bTop, aTopB);
+        buffer.addVertex(mat, xA1, y1, zA1).setColor(rTop, gTop, bTop, aTopA);
 
-        buffer.vertex(mat, xA1, y1, zA1).color(rTop, gTop, bTop, aTopA);
-        buffer.vertex(mat, xB1, y1, zB1).color(rTop, gTop, bTop, aTopB);
-        buffer.vertex(mat, xB0, y0, zB0).color(rBot, gBot, bBot, aBotB);
-        buffer.vertex(mat, xA0, y0, zA0).color(rBot, gBot, bBot, aBotA);
+        buffer.addVertex(mat, xA1, y1, zA1).setColor(rTop, gTop, bTop, aTopA);
+        buffer.addVertex(mat, xB1, y1, zB1).setColor(rTop, gTop, bTop, aTopB);
+        buffer.addVertex(mat, xB0, y0, zB0).setColor(rBot, gBot, bBot, aBotB);
+        buffer.addVertex(mat, xA0, y0, zA0).setColor(rBot, gBot, bBot, aBotA);
     }
 
     /**
@@ -329,8 +326,8 @@ public class RainCurtainRenderer {
      * Distance the horizon projection sits at. Anything further than this is
      * scaled onto it so it stays inside the fog envelope and keeps rendering.
      */
-    private static double horizonDistance(MinecraftClient client) {
-        double viewDistanceBlocks = client.options.getClampedViewDistance() * 16.0;
+    private static double horizonDistance(Minecraft client) {
+        double viewDistanceBlocks = client.options.getEffectiveRenderDistance() * 16.0;
         return Math.max(MIN_HORIZON_DIST, viewDistanceBlocks * HORIZON_VIEW_FRACTION);
     }
 

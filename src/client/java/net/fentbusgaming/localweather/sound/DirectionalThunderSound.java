@@ -6,10 +6,10 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fentbusgaming.localweather.network.ClientWeatherHandler;
 import net.fentbusgaming.localweather.weather.WeatherZone;
 import net.fentbusgaming.localweather.weather.WeatherZoneManager;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.sounds.SoundEvents;
 
 import java.util.Random;
 
@@ -37,8 +37,8 @@ public class DirectionalThunderSound {
         ClientTickEvents.END_CLIENT_TICK.register(DirectionalThunderSound::onTick);
     }
 
-    private static void onTick(MinecraftClient client) {
-        if (client.world == null || client.player == null) return;
+    private static void onTick(Minecraft client) {
+        if (client.level == null || client.player == null) return;
         if (client.isPaused()) return;
 
         if (--ticksUntilNext > 0) return;
@@ -103,9 +103,9 @@ public class DirectionalThunderSound {
         volume = Math.min(volume, 10f);
         float pitch = 0.8f + RANDOM.nextFloat() * 0.4f;
 
-        ClientWorld world = client.world;
-        world.playSoundClient(soundX, soundY, soundZ,
-                SoundEvents.ENTITY_LIGHTNING_BOLT_THUNDER,
-                SoundCategory.WEATHER, volume, pitch, false);
+        ClientLevel world = client.level;
+        world.playLocalSound(soundX, soundY, soundZ,
+                SoundEvents.LIGHTNING_BOLT_THUNDER,
+                SoundSource.WEATHER, volume, pitch, false);
     }
 }
