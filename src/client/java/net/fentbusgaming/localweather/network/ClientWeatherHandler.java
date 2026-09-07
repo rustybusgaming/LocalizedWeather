@@ -191,6 +191,14 @@ public final class ClientWeatherHandler {
                 zoneThunderLevel(baseX, baseZ), zoneThunderLevel(baseX + 1, baseZ),
                 zoneThunderLevel(baseX, baseZ + 1), zoneThunderLevel(baseX + 1, baseZ + 1), tx, tz);
 
+        // A moving single-cell thunderstorm carries its own rain: while its core
+        // is overhead it drives the gradient regardless of the zone underneath.
+        float cellRain = ClientStormCellHandler.getCoreIntensityAt(playerX, playerZ);
+        if (cellRain > 0.0f) {
+            targetRainGradient = Math.max(targetRainGradient, cellRain);
+            targetThunderGradient = Math.max(targetThunderGradient, cellRain);
+        }
+
         // Update current zone weather type for precipitation mixin
         ZoneState center = ZONE_STATES.get(pack(playerZoneX, playerZoneZ));
         currentZoneWeather = (center != null) ? center.getRenderableWeather() : WeatherZone.WeatherType.CLEAR;

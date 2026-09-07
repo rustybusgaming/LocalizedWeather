@@ -52,7 +52,7 @@ public class WeatherZoneManager {
     // This controls how often we broadcast changed zone weather to nearby players.
     private static final int SYNC_INTERVAL = 20; // every 1 second
     private static final int WIND_SYNC_INTERVAL = 100; // every 5 seconds
-    private static final int CLIENT_ZONE_RADIUS = 2;
+    public static final int CLIENT_ZONE_RADIUS = 2;
     private static int syncTimer = 0;
     private static int windSyncTimer = 0;
 
@@ -75,6 +75,9 @@ public class WeatherZoneManager {
             tickWorld(world);
         }
 
+        // Moving single-cell thunderstorms drift on top of the zone grid.
+        StormCellManager.tick(server);
+
         syncTimer++;
         windSyncTimer++;
         if (syncTimer >= SYNC_INTERVAL) {
@@ -84,6 +87,7 @@ public class WeatherZoneManager {
                 windSyncTimer = 0;
             }
             broadcastAllDirtyZones(server, sendWind);
+            StormCellManager.syncToPlayers(server);
         }
     }
 
@@ -378,6 +382,7 @@ public class WeatherZoneManager {
     public static void clearWorld(RegistryKey<World> worldKey) {
         WORLD_ZONES.remove(worldKey);
         DIRTY_ZONES.remove(worldKey);
+        StormCellManager.clearWorld(worldKey);
         PLAYER_ZONE_POSITIONS.entrySet().removeIf(entry -> entry.getValue().worldKey().equals(worldKey));
     }
 

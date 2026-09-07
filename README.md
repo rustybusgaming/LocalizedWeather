@@ -15,6 +15,8 @@ A Fabric mod that replaces Minecraft's global weather system with **per-zone loc
 - **Hailstorms** — occasional icy hail squalls with custom falling hail particles
 - **Smooth transitions** — rain/fog/sky color blend seamlessly across zone boundaries
 - **Storm clouds** — blocky, Minecraft-style 3D cloud layers appear over storm zones, visible from a distance
+- **Moving single-cell thunderstorms** — thundery zones spawn a travelling storm core that drifts along the wind
+- **Rain wall and rain bands** — a leaning precipitation curtain hangs under each storm core, with trailing rain bands arcing behind it; both move with the storm and stay drawn when it is far away
 - **Directional darkening** — sky, fog, and clouds darken toward approaching storms
 - **Vanilla cloud rendering** — localized rain gradients drive Minecraft's own blocky clouds without a cloud renderer dependency, keeping the mod compatible with renderer mods such as VulkanMod
 
@@ -43,6 +45,7 @@ Weather happens automatically — no commands needed. Each 256×256 block zone r
 - **Biome rules** kick in automatically — deserts stay dry, cold biomes get snow instead of rain
 - **Transitions** blend smoothly over 20 seconds at zone boundaries
 - **Storm clouds** appear as blocky 3D cloud layers over rainy/stormy zones, visible from far away
+- **Thunderstorm cells** travel across the world trailing a rain wall and rain bands you can watch approach from the horizon
 
 Just install and play — the weather will do its thing.
 

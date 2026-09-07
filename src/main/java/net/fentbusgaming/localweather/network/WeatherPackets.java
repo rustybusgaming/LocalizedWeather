@@ -3,6 +3,7 @@ package net.fentbusgaming.localweather.network;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fentbusgaming.localweather.LocalWeatherMod;
+import net.fentbusgaming.localweather.weather.StormCell;
 import net.fentbusgaming.localweather.weather.WeatherZone;
 import net.minecraft.network.RegistryByteBuf;
 import net.minecraft.network.codec.PacketCodec;
@@ -17,6 +18,11 @@ import net.minecraft.util.Identifier;
  * Packet: WeatherUpdatePayload
  *   → Server → Client
  *   → Tells the client what weather type their current zone has and the transition progress.
+ *
+ * Packet: StormCellPayload
+ *   → Server → Client
+ *   → One moving single-cell thunderstorm: where it is, where it is heading,
+ *     how wide its core is and how strong it currently is.
  */
 public final class WeatherPackets {
 
@@ -25,6 +31,9 @@ public final class WeatherPackets {
 
     public static final Identifier WIND_UPDATE_ID =
             Identifier.of(LocalWeatherMod.MOD_ID, "wind_update");
+
+    public static final Identifier STORM_CELL_ID =
+            Identifier.of(LocalWeatherMod.MOD_ID, "storm_cell");
 
     private WeatherPackets() {}
 
@@ -92,6 +101,47 @@ public final class WeatherPackets {
         }
     }
 
+    /**
+     * A single moving thunderstorm cell.
+     *
+     * The velocity is sent alongside the position so the client can extrapolate
+     * the cell between syncs — the rain wall and rain bands then travel smoothly
+     * instead of stepping once a second.
+     *
+     * Cells are re-sent every sync; a cell the client stops hearing about is
+     * retired on its own, so there is no separate removal packet.
+     */
+    public record StormCellPayload(
+            int cellId,
+            double x,
+            double z,
+            float velX,
+            float velZ,
+            float radius,
+            float intensity
+    ) implements CustomPayload {
+
+        public static final CustomPayload.Id<StormCellPayload> ID =
+                new CustomPayload.Id<>(STORM_CELL_ID);
+
+        public static final PacketCodec<RegistryByteBuf, StormCellPayload> CODEC =
+                PacketCodec.tuple(
+                        PacketCodecs.VAR_INT, StormCellPayload::cellId,
+                        PacketCodecs.DOUBLE,  StormCellPayload::x,
+                        PacketCodecs.DOUBLE,  StormCellPayload::z,
+                        PacketCodecs.FLOAT,   StormCellPayload::velX,
+                        PacketCodecs.FLOAT,   StormCellPayload::velZ,
+                        PacketCodecs.FLOAT,   StormCellPayload::radius,
+                        PacketCodecs.FLOAT,   StormCellPayload::intensity,
+                        StormCellPayload::new
+                );
+
+        @Override
+        public CustomPayload.Id<? extends CustomPayload> getId() {
+            return ID;
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Registration
     // -------------------------------------------------------------------------
@@ -104,6 +154,10 @@ public final class WeatherPackets {
         PayloadTypeRegistry.playS2C().register(
                 WindUpdatePayload.ID,
                 WindUpdatePayload.CODEC
+        );
+        PayloadTypeRegistry.playS2C().register(
+                StormCellPayload.ID,
+                StormCellPayload.CODEC
         );
         LocalWeatherMod.LOGGER.info("[LocalWeather] Registered S2C weather packets.");
     }
@@ -125,6 +179,19 @@ public final class WeatherPackets {
 
     public static void sendWindUpdate(ServerPlayerEntity player, double windDirX, double windDirZ) {
         WindUpdatePayload payload = new WindUpdatePayload((float) windDirX, (float) windDirZ);
+        ServerPlayNetworking.send(player, payload);
+    }
+
+    public static void sendStormCell(ServerPlayerEntity player, StormCell cell) {
+        StormCellPayload payload = new StormCellPayload(
+                cell.getId(),
+                cell.getX(),
+                cell.getZ(),
+                (float) cell.getVelX(),
+                (float) cell.getVelZ(),
+                cell.getRadius(),
+                cell.getIntensity()
+        );
         ServerPlayNetworking.send(player, payload);
     }
 }
