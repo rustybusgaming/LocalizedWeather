@@ -12,6 +12,9 @@ All notable changes to Localized Weather will be documented in this file.
 - Storm cells drive rain where their core passes, so the rain arrives with the wall and leaves with it
 - `LocalWeatherAPI.getStormCells`, `getStormCellAt` and `isInStormCell` for querying moving cells
 
+### Fixed
+- Storm clouds and hail particles render again — their renderers lost their registrations in 1.3.0 and had not drawn anything since
+
 ## [1.3.0] - 2026-08-04
 
 ### Added
