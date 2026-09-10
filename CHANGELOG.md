@@ -2,7 +2,7 @@
 
 All notable changes to Localized Weather will be documented in this file.
 
-## [Unreleased]
+## [1.4.0] - 2026-09-10
 
 ### Added
 - Moving single-cell thunderstorms — a thundery zone now spawns a travelling storm core that drifts along the wind, wanders slightly off-heading, and grows and dissipates over its own life span

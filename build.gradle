@@ -3,7 +3,9 @@ plugins {
     id 'maven-publish'
 }
 
-version = project.mod_version
+// Carry the game version in the artifact name so releases for different
+// Minecraft lines never collide on Modrinth or in a mods folder.
+version = "${project.mod_version}+${project.minecraft_version}"
 group = project.maven_group
 
 base {
