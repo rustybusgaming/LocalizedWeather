@@ -27,6 +27,9 @@ moves the whole mod onto Mojang's own names and targets the 26.x line.
 - Requires Java 25 and Fabric Loader 0.19.5+; mixin compatibility level raised to `JAVA_25`
 - Jars are now named `localweather-<mod version>+<minecraft version>.jar`
 
+### Fixed
+- Storm clouds and hail particles render again — their renderers lost their registrations in 1.3.0 and had not drawn anything since 1.3.0
+
 ### Notes
 - The Quilt jar is still produced but is **untested** on 26.x: `quilt.mod.json` still declares an intermediary mapping namespace that no longer exists for an unobfuscated game
 - The `neoforge/` workspace still targets 1.21.11 and has not been moved to 26.x
