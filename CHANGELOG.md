@@ -28,7 +28,7 @@ moves the whole mod onto Mojang's own names and targets the 26.x line.
 - Jars are now named `localweather-<mod version>+<minecraft version>.jar`
 
 ### Fixed
-- Storm clouds and hail particles render again — their renderers lost their registrations in 1.3.0 and had not drawn anything since
+- Storm clouds and hail particles render again — their renderers lost their registrations in 1.3.0 and had not drawn anything since 1.3.0
 
 ### Notes
 - The Quilt jar is still produced but is **untested** on 26.x: `quilt.mod.json` still declares an intermediary mapping namespace that no longer exists for an unobfuscated game
