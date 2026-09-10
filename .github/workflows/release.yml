@@ -38,6 +38,12 @@ jobs:
         id: mcversion
         run: echo "mc=$(grep '^minecraft_version=' gradle.properties | cut -d= -f2)" >> "$GITHUB_OUTPUT"
 
+      # Modrinth and CurseForge require a unique version number per upload, so
+      # the published version carries the game version the way the jar does.
+      - name: Compose release version
+        id: release
+        run: echo "version=${{ steps.version.outputs.version }}+${{ steps.mcversion.outputs.mc }}" >> "$GITHUB_OUTPUT"
+
       - name: Find release jars
         id: jars
         run: |
@@ -74,8 +80,8 @@ jobs:
           modrinth-id: ${{ vars.MODRINTH_PROJECT_ID }}
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
           files: ${{ steps.jars.outputs.fabric }}
-          name: Localized Weather v${{ steps.version.outputs.version }}
-          version: ${{ steps.version.outputs.version }}
+          name: Localized Weather v${{ steps.release.outputs.version }}
+          version: ${{ steps.release.outputs.version }}
           version-type: release
           loaders: fabric
           game-versions: ${{ steps.mcversion.outputs.mc }}
@@ -89,8 +95,8 @@ jobs:
           curseforge-id: ${{ vars.CURSEFORGE_PROJECT_ID }}
           curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
           files: ${{ steps.jars.outputs.fabric }}
-          name: Localized Weather v${{ steps.version.outputs.version }}
-          version: ${{ steps.version.outputs.version }}
+          name: Localized Weather v${{ steps.release.outputs.version }}
+          version: ${{ steps.release.outputs.version }}
           version-type: release
           loaders: fabric
           game-versions: ${{ steps.mcversion.outputs.mc }}

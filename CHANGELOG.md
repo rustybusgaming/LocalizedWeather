@@ -2,7 +2,7 @@
 
 All notable changes to Localized Weather will be documented in this file.
 
-## [Unreleased]
+## [1.4.0] - 2026-09-10
 
 ### Added
 - Moving single-cell thunderstorms — a thundery zone now spawns a travelling storm core that drifts along the wind, wanders slightly off-heading, and grows and dissipates over its own life span
@@ -11,6 +11,9 @@ All notable changes to Localized Weather will be documented in this file.
 - Distant storms keep their rain wall and rain bands: a cell past the fog horizon is scaled onto it rather than culled, so its apparent size is unchanged and a thunderstorm several zones away is still drawn
 - Storm cells drive rain where their core passes, so the rain arrives with the wall and leaves with it
 - `LocalWeatherAPI.getStormCells`, `getStormCellAt` and `isInStormCell` for querying moving cells
+
+### Fixed
+- Storm clouds and hail particles render again — their renderers lost their registrations in 1.3.0 and had not drawn anything since
 
 ## [1.3.0] - 2026-08-04
 
