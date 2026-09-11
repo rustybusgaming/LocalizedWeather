@@ -3,13 +3,14 @@ package net.fentbusgaming.localweather.mixin;
 import net.fentbusgaming.localweather.weather.WeatherZone;
 import net.fentbusgaming.localweather.weather.WeatherZoneManager;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.server.commands.WeatherCommand;
 import net.minecraft.core.BlockPos;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(targets = "net.minecraft.server.command.WeatherCommand")
+@Mixin(WeatherCommand.class)
 public abstract class WeatherCommandMixin {
 
     @Inject(method = "setClear", at = @At("RETURN"))
