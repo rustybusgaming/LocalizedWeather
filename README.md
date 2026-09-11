@@ -128,8 +128,9 @@ cd LocalizedWeather
 ./gradlew printTarget      # show the resolved target
 ```
 
-Needs **JDK 25** — Minecraft 26.x is compiled for it. Jars land in `build/libs/`
-as `localweather-<mod version>+<minecraft version>.jar`.
+Needs **JDK 25** — Minecraft 26.x is compiled for it. You do not have to install
+one: Gradle fetches a matching JDK on first build if your machine has none. Jars
+land in `build/libs/` as `localweather-<mod version>+<minecraft version>.jar`.
 
 ## Credits
 

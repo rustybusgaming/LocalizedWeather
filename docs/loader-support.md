@@ -32,6 +32,14 @@ Adding a new Minecraft line is a new properties file plus an entry in the CI
 matrix in `.github/workflows/`. No source changes are needed while the game's
 API holds still.
 
+### Toolchain
+
+26.x needs **Java 25** and **Gradle 9.5+** (Loom 1.17 requires it; the wrapper is
+pinned to 9.7.1 — use `gradlew`, not a system Gradle). The Foojay toolchain
+resolver is applied in `settings.gradle`, so Gradle downloads a matching JDK
+itself rather than failing with "Cannot find a Java installation ... matching:
+{languageVersion=25}".
+
 ### Keeping one source tree across versions
 
 26.2 moved the camera off `GameRenderer`, so the renderers read the frame's
