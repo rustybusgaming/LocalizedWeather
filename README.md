@@ -9,7 +9,7 @@
 Rain, snow, hail and thunderstorms happen independently across the world — you can stand in sunshine and watch a storm roll in over the hills.
 
 [![Build](https://github.com/rustybusgaming/LocalizedWeather/actions/workflows/build.yml/badge.svg)](https://github.com/rustybusgaming/LocalizedWeather/actions/workflows/build.yml)
-[![Minecraft](https://img.shields.io/badge/Minecraft-1.21.9%2B-brightgreen)](https://www.minecraft.net/)
+[![Minecraft](https://img.shields.io/badge/Minecraft-1.21.11-brightgreen)](https://www.minecraft.net/)
 [![Loader](https://img.shields.io/badge/loader-Fabric%20%7C%20Quilt-dbd0b4)](https://fabricmc.net/)
 [![Java](https://img.shields.io/badge/Java-21-orange)](https://adoptium.net/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
