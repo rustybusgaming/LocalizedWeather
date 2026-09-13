@@ -49,7 +49,9 @@ public class HailParticleRenderer {
 
         context.submitNodeCollector().submitCustomGeometry(
                 context.poseStack(),
-                RenderTypes.translucentMovingBlock(),
+                // POSITION_COLOR layer — see StormCloudRenderer for why this is not
+                // the textured translucentMovingBlock layer.
+                RenderTypes.debugFilledBox(),
                 (pose, buffer) -> {
                     Matrix4f mat = pose.pose();
                     for (ClientWeatherHandler.ZoneState zone : zones.values()) {

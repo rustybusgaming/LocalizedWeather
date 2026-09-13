@@ -28,6 +28,7 @@ moves the whole mod onto Mojang's own names and targets the 26.x line.
 - Jars are now named `localweather-<mod version>+<minecraft version>.jar`
 
 ### Fixed
+- Renderers draw on a POSITION_COLOR layer instead of the textured `translucentMovingBlock` layer — they emit position and colour only, and 26.x's `BufferBuilder` throws `Missing elements in vertex: UV0, UV2` rather than defaulting them, crashing the client on the first frame of weather
 - Storm clouds and hail particles render again — their renderers lost their registrations in 1.3.0 and had not drawn anything since 1.3.0
 
 ### Notes
