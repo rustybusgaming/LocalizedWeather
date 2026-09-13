@@ -10,7 +10,13 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -48,6 +54,25 @@ public class WeatherZoneManager {
 
     private static final Random RANDOM = new Random();
 
+    /**
+     * Odds per player per tick of a lightning strike while standing in a thunder
+     * zone — roughly one strike a minute nearby. Vanilla drives lightning from
+     * its global thunder state, which this mod suppresses, so thunderstorms
+     * struck nothing at all until now.
+     */
+    private static final int LIGHTNING_CHANCE = 1200;
+    /** Horizontal spread of strikes around the player, in blocks. */
+    private static final int LIGHTNING_SPREAD = 48;
+
+    /**
+     * Looked up from the registry rather than named directly: 26.1 holds the
+     * constant on EntityType and 26.2 moved it to EntityTypes, so neither name
+     * compiles against both targets. The registry and this accessor are the
+     * same on each.
+     */
+    private static final EntityType<?> LIGHTNING_TYPE = BuiltInRegistries.ENTITY_TYPE
+            .getValue(Identifier.fromNamespaceAndPath("minecraft", "lightning_bolt"));
+
     // How often (in ticks) we re-evaluate zone weather (besides duration expiry).
     // This controls how often we broadcast changed zone weather to nearby players.
     private static final int SYNC_INTERVAL = 20; // every 1 second
@@ -77,6 +102,10 @@ public class WeatherZoneManager {
 
         // Moving single-cell thunderstorms drift on top of the zone grid.
         StormCellManager.tick(server);
+
+        for (ServerLevel world : server.getAllLevels()) {
+            tickLightning(world);
+        }
 
         syncTimer++;
         windSyncTimer++;
@@ -118,6 +147,30 @@ public class WeatherZoneManager {
                 }
                 markDirty(world.dimension(), zoneKey);
             }
+        }
+    }
+
+    /**
+     * Strike lightning inside thundery zones. Positions are filtered through
+     * isRainingAt, so a strike only lands where the rain actually reaches.
+     */
+    private static void tickLightning(ServerLevel world) {
+        for (ServerPlayer player : world.players()) {
+            ChunkPos chunkPos = player.chunkPosition();
+            WeatherZone zone = getZone(world, chunkPos.x() >> 4, chunkPos.z() >> 4);
+            if (zone == null || zone.getCurrentWeather() != WeatherZone.WeatherType.THUNDER) continue;
+            if (RANDOM.nextInt(LIGHTNING_CHANCE) != 0) continue;
+
+            BlockPos around = player.blockPosition().offset(
+                    RANDOM.nextInt(LIGHTNING_SPREAD * 2 + 1) - LIGHTNING_SPREAD,
+                    0,
+                    RANDOM.nextInt(LIGHTNING_SPREAD * 2 + 1) - LIGHTNING_SPREAD);
+            BlockPos target = world.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING, around);
+            if (!world.isLoaded(target) || !world.isRainingAt(target)) continue;
+
+            if (!(LIGHTNING_TYPE.create(world, EntitySpawnReason.EVENT) instanceof LightningBolt bolt)) continue;
+            bolt.snapTo(Vec3.atBottomCenterOf(target));
+            world.addFreshEntity(bolt);
         }
     }
 
