@@ -39,7 +39,7 @@ public class StormCloudRenderer {
      * fair-weather cloud layer anyway, so it sits well below and reads as its
      * own deck underneath.
      */
-    private static final float CLOUD_BASE = 160.0f;
+    private static final float CLOUD_BASE = 170.0f;
     /** How far a cell's base wanders from the deck, so it is not a flat plate. */
     private static final float DECK_ROUGHNESS = 9.0f;
     /** Thickness multiplier range across cells: thin wisps up to piled-up cloud. */
@@ -76,7 +76,7 @@ public class StormCloudRenderer {
      * fainter so the middle one stays the body of the storm.
      */
     private static final int CLOUD_LAYERS = 3;
-    private static final float[] CLOUD_LAYER_HEIGHT = {0f, 10f, -10f};
+    private static final float[] CLOUD_LAYER_HEIGHT = {0f, 3f, -12f};
     private static final float[] CLOUD_LAYER_COVERAGE_ADJUST = {0f, -0.16f, -0.24f};
     private static final float[] CLOUD_LAYER_ALPHA_SCALE = {1f, 0.72f, 0.5f};
     private static final float[] CLOUD_LAYER_WIND_SCALE = {1.0f, 1.15f, 0.85f};
