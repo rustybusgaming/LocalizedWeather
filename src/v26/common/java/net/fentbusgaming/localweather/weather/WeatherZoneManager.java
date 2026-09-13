@@ -1,8 +1,5 @@
 package net.fentbusgaming.localweather.weather;
 
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.fentbusgaming.localweather.LocalWeatherMod;
-import net.fentbusgaming.localweather.network.WeatherPackets;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -10,6 +7,8 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.EntitySpawnReason;
@@ -52,6 +51,12 @@ public class WeatherZoneManager {
     private static final Map<ResourceKey<Level>, Set<Long>> DIRTY_ZONES =
             new ConcurrentHashMap<>();
 
+    /**
+     * The simulation is shared between loaders, so it logs under its own name
+     * rather than through either platform's entry point.
+     */
+    private static final Logger LOGGER = LoggerFactory.getLogger("localweather");
+
     private static final Random RANDOM = new Random();
 
     /**
@@ -84,16 +89,29 @@ public class WeatherZoneManager {
     /** Last zone sent to each player, used to avoid re-sending an unchanged view. */
     private static final Map<UUID, PlayerZonePosition> PLAYER_ZONE_POSITIONS = new ConcurrentHashMap<>();
 
-    public static void init() {
-        ServerTickEvents.END_SERVER_TICK.register(WeatherZoneManager::onServerTick);
-        LocalWeatherMod.LOGGER.info("[LocalWeather] WeatherZoneManager registered.");
+    /** Where zone updates are sent. Set by whichever loader is running us. */
+    private static WeatherSync sync = WeatherSync.NONE;
+
+    /**
+     * Hand the simulation its networking. The loader is responsible for calling
+     * {@link #tick(MinecraftServer)} from its own server tick event — Fabric and
+     * NeoForge spell that event differently, and it is the only part of this
+     * class either of them has to supply.
+     */
+    static WeatherSync sync() {
+        return sync;
+    }
+
+    public static void init(WeatherSync weatherSync) {
+        sync = weatherSync;
+        LOGGER.info("[LocalWeather] WeatherZoneManager registered.");
     }
 
     // -------------------------------------------------------------------------
     // Tick Handler
     // -------------------------------------------------------------------------
 
-    private static void onServerTick(MinecraftServer server) {
+    public static void tick(MinecraftServer server) {
         WindState.tick();
 
         for (ServerLevel world : server.getAllLevels()) {
@@ -372,7 +390,7 @@ public class WeatherZoneManager {
             // boundary — audible and lit, but with no clouds drawn.
             if (Math.abs(pZoneX - zone.getZoneX()) <= CLIENT_ZONE_RADIUS
                     && Math.abs(pZoneZ - zone.getZoneZ()) <= CLIENT_ZONE_RADIUS) {
-                WeatherPackets.sendWeatherUpdate(player, zone);
+                sync.sendZone(player, zone);
             }
         }
     }
@@ -398,7 +416,7 @@ public class WeatherZoneManager {
                 boolean enteredNewZone = !position.equals(PLAYER_ZONE_POSITIONS.put(playerId, position));
 
                 if (sendWind || enteredNewZone) {
-                    WeatherPackets.sendWindUpdate(player, windX, windZ);
+                    sync.sendWind(player, windX, windZ);
                 }
 
                 if (enteredNewZone) {
@@ -414,7 +432,7 @@ public class WeatherZoneManager {
         for (int dx = -CLIENT_ZONE_RADIUS; dx <= CLIENT_ZONE_RADIUS; dx++) {
             for (int dz = -CLIENT_ZONE_RADIUS; dz <= CLIENT_ZONE_RADIUS; dz++) {
                 WeatherZone zone = getOrCreateZone(world, centerZoneX + dx, centerZoneZ + dz);
-                WeatherPackets.sendWeatherUpdate(player, zone);
+                sync.sendZone(player, zone);
             }
         }
     }
@@ -458,7 +476,7 @@ public class WeatherZoneManager {
             int pZoneZ = chunkPos.z() >> 4;
             if (Math.abs(pZoneX - zoneX) <= CLIENT_ZONE_RADIUS
                     && Math.abs(pZoneZ - zoneZ) <= CLIENT_ZONE_RADIUS) {
-                WeatherPackets.sendWeatherUpdate(player, zone);
+                sync.sendZone(player, zone);
             }
         }
     }

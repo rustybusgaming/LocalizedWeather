@@ -85,8 +85,8 @@ named differently between them — see [docs/loader-support.md](docs/loader-supp
 | Loader | Status |
 | ------ | ------ |
 | **Fabric** | ✅ Primary supported loader |
-| **Quilt** | ⚠️ A Quilt jar is still produced, but it is untested on 26.x — see [docs/loader-support.md](docs/loader-support.md) |
-| **NeoForge** | 🚧 Isolated workspace in [`neoforge/`](neoforge/README.md), still on 1.21.11 and not a release artifact |
+| **Quilt** | ✅ 1.21.x only — Quilt publishes no intermediate namespace for 26.x, so no Quilt jar is built there |
+| **NeoForge** | 🚧 [`neoforge/`](neoforge/README.md) on 26.1.x simulates weather server-side, sharing the simulation with Fabric; client sync is not ported, so it is not a release artifact |
 
 See [docs/loader-support.md](docs/loader-support.md) for the full breakdown.
 

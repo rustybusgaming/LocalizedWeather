@@ -1,6 +1,5 @@
 package net.fentbusgaming.localweather.weather;
 
-import net.fentbusgaming.localweather.network.WeatherPackets;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -170,7 +169,7 @@ public final class StormCellManager {
             for (ServerPlayer player : world.players()) {
                 for (StormCell cell : snapshot) {
                     if (cell.squaredDistanceTo(player.getX(), player.getZ()) <= syncSq) {
-                        WeatherPackets.sendStormCell(player, cell);
+                        WeatherZoneManager.sync().sendStormCell(player, cell);
                     }
                 }
             }

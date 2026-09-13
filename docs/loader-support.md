@@ -101,16 +101,28 @@ pipeline: `WorldRenderEvents`/`WorldRenderContext` became
 
 ## Quilt
 
-A Quilt-flavoured jar is still produced (the Fabric jar minus `fabric.mod.json`)
-and native Quilt metadata is still packaged. **It is untested on 26.x.** Quilt
-Loader tracks the 26.x game versions, but `quilt.mod.json` still declares
-`intermediate_mappings: net.fabricmc:intermediary`, and there is no intermediary
-namespace for an unobfuscated game. Treat Quilt on 26.x as unverified until
-someone runs it.
+Quilt is shipped **for the 1.21.x line only**, as the Fabric jar minus
+`fabric.mod.json` plus native `quilt.mod.json` metadata.
+
+It is not shipped for 26.x. Quilt resolves mods through an intermediate
+namespace, and it publishes none for that line — `meta.quiltmc.org` serves
+hashed mappings for 1.21.11 and returns 404 for 26.1.2. A 26.x Quilt jar could
+only declare a namespace that does not exist for that game, so the build skips
+the Quilt jar when the target is unmapped and `quilt.mod.json` lives in
+`src/v1_21/`.
 
 ## NeoForge
 
-The isolated workspace in [`neoforge/`](../neoforge) still targets 1.21.11 and has
-not been moved to 26.x. It validates the loader entrypoint and metadata only; the
-event, networking, client, rendering and mixin integrations are still not ported,
-so it is not a release artifact.
+The module in [`neoforge/`](../neoforge) targets **26.1.x** and now runs the
+weather simulation for real, rather than only validating an entry point.
+
+Because 26.x is compiled against Mojang's names on both loaders, the simulation
+is shared rather than duplicated: the module compiles `src/shared/java` and
+`src/v26/common/java` directly out of the Fabric tree and adds only its own
+glue in `src/neoforge/main/java`. `WeatherSync` is the one seam — the
+simulation pushes updates into it, and each loader supplies an implementation
+and calls `WeatherZoneManager.tick(server)` from its own tick event.
+
+Server-side weather works. Client sync does not: no payloads are registered on
+this platform, so it runs with `WeatherSync.NONE` and clients see nothing. It
+is still not a release artifact. See [`neoforge/README.md`](../neoforge/README.md).

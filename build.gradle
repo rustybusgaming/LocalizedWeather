@@ -84,7 +84,9 @@ loom {
 // Point the split source sets at the active line, plus the shared classes.
 sourceSets {
     main {
-        java.srcDirs = ["src/shared/java", "src/${source_line}/main/java"]
+        // src/<line>/common holds code that is Minecraft-facing but not
+        // loader-facing, so another loader's module can compile it too.
+        java.srcDirs = ["src/shared/java", "src/${source_line}/common/java", "src/${source_line}/main/java"]
         resources.srcDirs = ["src/main/resources", "src/${source_line}/main/resources"]
     }
     client {
@@ -144,18 +146,25 @@ jar {
 // jar repackages whichever task actually produced the shippable artifact.
 def shippableJar = mapped ? tasks.named("remapJar") : tasks.named("jar")
 
-tasks.register("quiltJar", Jar) {
-    dependsOn shippableJar
-    archiveClassifier = "quilt"
+// Quilt is only shipped for the mapped line. Quilt resolves mods through an
+// intermediate namespace, and it publishes none for 26.x — its hashed mappings
+// 404 for 26.1.2 while 1.21.11 has them — so a 26.x Quilt jar could only
+// declare a namespace that does not exist for that game. quilt.mod.json
+// therefore lives in the 1.21.x line.
+if (mapped) {
+    tasks.register("quiltJar", Jar) {
+        dependsOn shippableJar
+        archiveClassifier = "quilt"
 
-    from {
-        zipTree(shippableJar.get().archiveFile)
+        from {
+            zipTree(shippableJar.get().archiveFile)
+        }
+        exclude "fabric.mod.json"
     }
-    exclude "fabric.mod.json"
-}
 
-tasks.named("build") {
-    dependsOn tasks.named("quiltJar")
+    tasks.named("build") {
+        dependsOn tasks.named("quiltJar")
+    }
 }
 
 /** Prints the resolved target, so CI and scripts do not have to parse properties. */
