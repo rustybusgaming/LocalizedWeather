@@ -34,6 +34,8 @@ moves the whole mod onto Mojang's own names and targets the 26.x line.
 - Cell height and thickness vary per cell, and cells near the coverage threshold fade out, giving the deck a lumpy body and a ragged fringe instead of uniform boxes ending in a wall
 
 ### Fixed
+- Localized rain is physically real, not just visual. Vanilla weather is suppressed, so `isRainingAt` could never be true and nothing in the world reacted to a storm; it is now answered from the zone at that position, which restores mobs not burning in daylight under rain, cauldrons filling, farmland hydrating and campfires going out — per zone rather than world-wide
+- Thunderstorms strike lightning again. Vanilla drives lightning from its global thunder state, which the mod suppresses, so storms struck nothing at all
 - Zone weather changes reach the client for the whole area it caches. Changes were broadcast only to players within 1 zone while the client is sent and keeps a 5x5 grid, so a storm two zones out stayed stale until the player crossed a zone boundary — audible, but with no clouds drawn
 - Renderers draw on a POSITION_COLOR layer instead of the textured `translucentMovingBlock` layer — they emit position and colour only, and 26.x's `BufferBuilder` throws `Missing elements in vertex: UV0, UV2` rather than defaulting them, crashing the client on the first frame of weather
 - Storm clouds and hail particles render again — their renderers lost their registrations in 1.3.0 and had not drawn anything since 1.3.0
