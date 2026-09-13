@@ -57,10 +57,18 @@ Storms further away than the fog horizon are not culled. Their geometry is proje
 
 ## Requirements
 
-- Minecraft **1.21.9+**
+- Minecraft **1.21.11** exactly — see the note below
 - **Fabric Loader 0.19.2+** or Quilt Loader 0.19.2+
 - **Fabric API**, or Quilted Fabric API on Quilt
 - Java 21
+
+> **Why only 1.21.11?** Minecraft's rendering API broke in each of these point
+> releases, so one build cannot span them. 1.21.9 has Fabric's world-render
+> callbacks in a different package, and 1.21.10 has no
+> `RenderLayers.translucentMovingBlock()`. Minecraft 26.x is further still — it
+> dropped obfuscation, retired Yarn, and replaced immediate-mode world
+> rendering; that line lives on the [`26`](https://github.com/rustybusgaming/LocalizedWeather/tree/26)
+> branch. See [docs/loader-support.md](docs/loader-support.md).
 
 ## Installation
 
