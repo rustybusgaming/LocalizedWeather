@@ -7,7 +7,8 @@
   "client": [
     "ClientWorldMixin",
     "SkyColorMixin",
-    "FogMixin"
+    "FogMixin",
+    "CloudMixin"
   ],
   "injectors": {
     "defaultRequire": 1

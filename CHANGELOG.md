@@ -28,11 +28,13 @@ moves the whole mod onto Mojang's own names and targets the 26.x line.
 - Jars are now named `localweather-<mod version>+<minecraft version>.jar`
 
 ### Changed
+- Vanilla's cloud layer is hidden once the storm deck has taken over the sky, so the two are not stacked; the swap uses hysteresis and only happens when the deck is already dense enough to hide them
 - Storm clouds hang as their own deck below vanilla's cloud layer instead of sharing its altitude, where the two interleaved into a single flat plate — both use 12-block cells and 4-block thickness, so they were drawing into each other
 - The deck is three layers at different heights, each with its own noise pattern, drift speed and opacity, so the sky has depth rather than reading as a ceiling
 - Cell height and thickness vary per cell, and cells near the coverage threshold fade out, giving the deck a lumpy body and a ragged fringe instead of uniform boxes ending in a wall
 
 ### Fixed
+- Zone weather changes reach the client for the whole area it caches. Changes were broadcast only to players within 1 zone while the client is sent and keeps a 5x5 grid, so a storm two zones out stayed stale until the player crossed a zone boundary — audible, but with no clouds drawn
 - Renderers draw on a POSITION_COLOR layer instead of the textured `translucentMovingBlock` layer — they emit position and colour only, and 26.x's `BufferBuilder` throws `Missing elements in vertex: UV0, UV2` rather than defaulting them, crashing the client on the first frame of weather
 - Storm clouds and hail particles render again — their renderers lost their registrations in 1.3.0 and had not drawn anything since 1.3.0
 
