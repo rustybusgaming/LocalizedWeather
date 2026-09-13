@@ -15,10 +15,51 @@ tag/branch. The `1.3.x` line is the last release for 1.21.x.
 
 ### Supported targets
 
-| Target | Covers | Fabric API | Java |
-| ------ | ------ | ---------- | ---- |
-| `26.1.2` | 26.1, 26.1.1, 26.1.2 | 0.155.3+26.1.2 | 25 |
-| `26.2` | 26.2 | 0.159.0+26.2 | 25 |
+| Target | Line | Covers | Fabric API | Java |
+| ------ | ---- | ------ | ---------- | ---- |
+| `1.21.11` | `v1_21` | 1.21.11 | 0.141.6+1.21.11 | 21 |
+| `26.1.2` | `v26` | 26.1, 26.1.1, 26.1.2 | 0.155.3+26.1.2 | 25 |
+| `26.2` | `v26` | 26.2 | 0.159.0+26.2 | 25 |
+
+### Why there are two source lines
+
+The two lines cannot share Minecraft-facing code, and not because of the API
+changes — because of naming:
+
+- **1.21.x must be mapped.** Fabric API's 1.21.x builds ship their access
+  wideners in the `intermediary` namespace, so an unmapped build is rejected
+  outright. Mojang mappings are refused too (`Cannot use Mojang mappings in a
+  non-obfuscated environment`), which leaves Yarn as the only usable set.
+- **26.x cannot be mapped.** No intermediary namespace exists for it, and the
+  new Loom plugin has no mappings step at all.
+
+So every Minecraft symbol is spelled differently between the lines —
+`MinecraftClient`/`Minecraft`, `ServerWorld`/`ServerLevel`,
+`Identifier`/`ResourceLocation` — before any real API change is considered.
+Marking that up inline would put two versions of nearly every line in every
+file, so each line gets its own directory instead:
+
+```
+src/shared/java     classes that touch no Minecraft API (WeatherZone,
+                    StormCell, WindState) — genuinely common
+src/v1_21/...       the 1.21.x line, Yarn names
+src/v26/...         the 26.x line, Mojang names
+```
+
+`build.gradle` points the `main` and `client` source sets at `src/shared` plus
+the active line.
+
+### Two Loom plugins
+
+`fabric-loom` and `net.fabricmc.fabric-loom` are different plugins that happen
+to share an artifact and version. The first is the mapped, obfuscated-era one
+1.21.x needs; the second is the unobfuscated-era one 26.x needs, and each
+refuses the other's world. The build declares both with `apply false` and
+applies whichever the target calls for.
+
+They also differ on the Gradle daemon JVM: the classic plugin insists the
+daemon itself runs Java 25 for a 26.x game, while the new one is happy with a
+Java 21 daemon and a Java 25 toolchain. CI installs both JDKs for that reason.
 
 Each target is one file in [`versions/`](../versions). Build one with:
 

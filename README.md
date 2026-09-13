@@ -57,14 +57,10 @@ Storms further away than the fog horizon are not culled. Their geometry is proje
 
 ## Requirements
 
-- Minecraft **26.1 – 26.2** (see the version table below)
-- **Fabric Loader 0.19.5+**
+- Minecraft **1.21.11**, or **26.1 – 26.2** (see the version table below)
+- **Fabric Loader 0.19.2+** on 1.21.11, **0.19.5+** on 26.x
 - **Fabric API**
-- Java 25
-
-> Playing on 1.21.x? Use the **1.3.x** releases. Minecraft 26.1 dropped
-> obfuscation and retired Yarn mappings, so 26.x builds against Mojang's own
-> names — see [docs/loader-support.md](docs/loader-support.md).
+- Java 21 on 1.21.11, Java 25 on 26.x
 
 ## Installation
 
@@ -78,11 +74,13 @@ Storms further away than the fog horizon are not culled. Their geometry is proje
 
 | Minecraft | Build target | Fabric API | Java |
 | --------- | ------------ | ---------- | ---- |
+| 1.21.11 | `-Pmc=1.21.11` | 0.141.6+1.21.11 | 21 |
 | 26.1, 26.1.1, 26.1.2 | `-Pmc=26.1.2` (default) | 0.155.3+26.1.2 | 25 |
 | 26.2 | `-Pmc=26.2` | 0.159.0+26.2 | 25 |
-| 1.21.9 – 1.21.11 | 1.3.x releases | — | 21 |
 
-One source tree builds every 26.x target; each target is a file in [`versions/`](versions).
+One repository builds every target; each is a file in [`versions/`](versions).
+The 1.21.x and 26.x lines keep separate source directories because Minecraft is
+named differently between them — see [docs/loader-support.md](docs/loader-support.md).
 
 | Loader | Status |
 | ------ | ------ |
