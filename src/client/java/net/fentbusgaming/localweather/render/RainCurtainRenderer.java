@@ -87,7 +87,17 @@ public class RainCurtainRenderer {
     private static final float DISTANCE_BOOST_PER_BLOCK = 1.0f / 6000.0f;
     private static final float MAX_DISTANCE_BOOST = 0.35f;
 
-    private static final RenderType CURTAIN_RENDER_LAYER = RenderTypes.translucentMovingBlock();
+    /**
+     * Position + colour only, which is exactly what this renderer emits.
+     *
+     * {@code translucentMovingBlock()} is a textured block layer: its vertex
+     * format also wants UV0 and UV2, and 26.x's BufferBuilder throws
+     * "Missing elements in vertex: UV0, UV2" rather than defaulting them.
+     * {@code debugFilledBox()} is built from a POSITION_COLOR / QUADS snippet
+     * with translucent blending and culling left on, so it matches this
+     * geometry without inventing texture or lightmap coordinates.
+     */
+    private static final RenderType CURTAIN_RENDER_LAYER = RenderTypes.debugFilledBox();
 
     public static void register() {
         LevelRenderEvents.COLLECT_SUBMITS.register(RainCurtainRenderer::render);
