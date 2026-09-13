@@ -55,6 +55,16 @@ public final class ClientWeatherHandler {
     private static double smoothStormDirZ = 0;
     private static float smoothStormIntensity = 0f;
 
+    /**
+     * Whether vanilla's cloud layer is currently hidden in favour of the storm
+     * deck. Swapped with hysteresis, and only once the storm deck is dense
+     * enough to have covered the sky anyway, so the changeover is not a visible
+     * pop. Vanilla clouds are global, so this is all-or-nothing.
+     */
+    private static boolean hidingVanillaClouds = false;
+    private static final float HIDE_CLOUDS_ABOVE = 0.85f;
+    private static final float SHOW_CLOUDS_BELOW = 0.75f;
+
     /** Wind direction from server. */
     private static double windDirX = 1.0;
     private static double windDirZ = 0.0;
@@ -161,6 +171,7 @@ public final class ClientWeatherHandler {
         if (world != activeWorld) {
             activeWorld = world;
             ZONE_STATES.clear();
+            hidingVanillaClouds = false;
             currentZoneWeather = WeatherZone.WeatherType.CLEAR;
             targetRainGradient = 0.0f;
             targetThunderGradient = 0.0f;
@@ -208,6 +219,12 @@ public final class ClientWeatherHandler {
 
         // Compute storm direction: weighted average direction toward all nearby stormy zones
         computeStormDirection(playerX, playerZ, playerZoneX, playerZoneZ);
+
+        if (hidingVanillaClouds) {
+            if (targetRainGradient < SHOW_CLOUDS_BELOW) hidingVanillaClouds = false;
+        } else if (targetRainGradient > HIDE_CLOUDS_ABOVE) {
+            hidingVanillaClouds = true;
+        }
 
         // Smoothly chase gradients
         float currentRain = world.getRainLevel(1.0f);
@@ -399,6 +416,11 @@ public final class ClientWeatherHandler {
 
     public static float getSmoothedStormIntensity() {
         return smoothStormIntensity;
+    }
+
+    /** True while vanilla's cloud layer should be skipped for the storm deck. */
+    public static boolean isHidingVanillaClouds() {
+        return hidingVanillaClouds;
     }
 
     public static double getWindDirX() {

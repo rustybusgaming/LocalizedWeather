@@ -313,8 +313,12 @@ public class WeatherZoneManager {
             int pZoneX = chunkPos.x() >> 4;
             int pZoneZ = chunkPos.z() >> 4;
 
-            // Send to players in this zone and adjacent zones (so transitions look smooth at borders)
-            if (Math.abs(pZoneX - zone.getZoneX()) <= 1 && Math.abs(pZoneZ - zone.getZoneZ()) <= 1) {
+            // Match the radius the client is sent on arrival and keeps cached. At
+            // radius 1 a zone further out that changed weather was never pushed,
+            // so distant storms stayed stale until the player crossed a zone
+            // boundary — audible and lit, but with no clouds drawn.
+            if (Math.abs(pZoneX - zone.getZoneX()) <= CLIENT_ZONE_RADIUS
+                    && Math.abs(pZoneZ - zone.getZoneZ()) <= CLIENT_ZONE_RADIUS) {
                 WeatherPackets.sendWeatherUpdate(player, zone);
             }
         }
@@ -399,7 +403,8 @@ public class WeatherZoneManager {
             ChunkPos chunkPos = player.chunkPosition();
             int pZoneX = chunkPos.x() >> 4;
             int pZoneZ = chunkPos.z() >> 4;
-            if (Math.abs(pZoneX - zoneX) <= 1 && Math.abs(pZoneZ - zoneZ) <= 1) {
+            if (Math.abs(pZoneX - zoneX) <= CLIENT_ZONE_RADIUS
+                    && Math.abs(pZoneZ - zoneZ) <= CLIENT_ZONE_RADIUS) {
                 WeatherPackets.sendWeatherUpdate(player, zone);
             }
         }
