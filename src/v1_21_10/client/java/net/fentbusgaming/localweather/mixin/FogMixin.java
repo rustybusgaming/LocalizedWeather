@@ -3,11 +3,12 @@ package net.fentbusgaming.localweather.mixin;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fentbusgaming.localweather.network.ClientWeatherHandler;
-import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.client.render.fog.AtmosphericFogModifier;
 import net.minecraft.client.render.fog.FogData;
 import net.minecraft.client.world.ClientWorld;
+import net.minecraft.entity.Entity;
+import net.minecraft.util.math.BlockPos;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -26,9 +27,15 @@ public abstract class FogMixin {
      * After vanilla applies atmospheric fog, tighten the fog end distance when near storms
      * to create a hazy, overcast look in the direction of an approaching storm.
      */
+    /*
+     * 1.21.11 replaced the (entity, pos) pair with a single Camera. This line
+     * still takes the pair, and the injected method's descriptor has to match
+     * the target exactly, so the two lines cannot share this signature.
+     */
     @Inject(method = "applyStartEndModifier", at = @At("RETURN"))
     private void localweather$stormFog(FogData fogData,
-                                       Camera camera,
+                                       Entity cameraEntity,
+                                       BlockPos cameraPos,
                                        ClientWorld world,
                                        float viewDistance,
                                        RenderTickCounter tickCounter,

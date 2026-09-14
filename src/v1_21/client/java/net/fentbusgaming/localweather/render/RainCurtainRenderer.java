@@ -89,7 +89,18 @@ public class RainCurtainRenderer {
     private static final float DISTANCE_BOOST_PER_BLOCK = 1.0f / 6000.0f;
     private static final float MAX_DISTANCE_BOOST = 0.35f;
 
-    private static final RenderLayer CURTAIN_RENDER_LAYER = RenderLayers.translucentMovingBlock();
+    /**
+     * Position + colour only, which is exactly what this renderer emits.
+     *
+     * {@code RenderLayers.translucentMovingBlock()} is a textured block layer: its vertex format also wants
+     * UV0, UV2 and Normal, and BufferBuilder throws "Missing elements in
+     * vertex" rather than defaulting them, so this crashed the moment any
+     * geometry was actually drawn. The debug filled-box layer is built from a
+     * POSITION_COLOR / QUADS snippet with translucent blending and culling left
+     * on, so it matches this geometry without inventing texture, lightmap or
+     * normal data.
+     */
+    private static final RenderLayer CURTAIN_RENDER_LAYER = RenderLayers.debugFilledBox();
 
     public static void register() {
         WorldRenderEvents.AFTER_ENTITIES.register(RainCurtainRenderer::render);

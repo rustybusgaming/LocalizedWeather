@@ -30,6 +30,12 @@ be shared even within 1.21:
 
 - **1.21.10** renamed the layer accessor: `RenderLayer.getTranslucentMovingBlock()`
   where 1.21.11 has `RenderLayers.translucentMovingBlock()`.
+- **1.21.11** replaced two mixin target signatures the older releases still use:
+  `AtmosphericFogModifier.applyStartEndModifier` takes a `Camera` where 1.21.9
+  and 1.21.10 take an entity plus a block position, and
+  `SkyRendering.updateRenderState` takes a `Camera` where they take a `Vec3d`.
+  An injected method's descriptor must match its target exactly, so these cannot
+  be shared even though the bodies are identical.
 - **1.21.9** has no world-render event in Fabric API at all. Its
   `fabric-rendering-v1` (16.0.1) ships no `WorldRenderEvents` in any package —
   it reappears as `…rendering.v1.world.WorldRenderEvents` only from the
@@ -105,6 +111,16 @@ itself rather than failing with "Cannot find a Java installation ... matching:
 camera position from `LevelRenderContext.levelState().cameraRenderState.pos`,
 which is identical on both lines — and is the position the frame is actually
 drawn from. Prefer that kind of common API over a version-conditional branch.
+
+### Vertex formats in custom world geometry
+
+The three renderers emit position and colour only. `translucentMovingBlock` is a
+textured block layer whose vertex format also wants UV0, UV2 and Normal, and
+`BufferBuilder` throws `Missing elements in vertex` rather than defaulting them —
+on 1.21.10 and 1.21.11 as well as on 26.x. Every line therefore draws on the
+debug filled-box layer, which is a POSITION_COLOR / QUADS snippet with
+translucent blending and culling left on: it matches this geometry exactly,
+without inventing texture, lightmap or normal data.
 
 ## Fabric
 

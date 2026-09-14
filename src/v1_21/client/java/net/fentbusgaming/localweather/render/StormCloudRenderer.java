@@ -33,8 +33,27 @@ public class StormCloudRenderer {
     private static final int CELL_SIZE = 12;
     /** Vertical thickness of cloud boxes in blocks. */
     private static final float CLOUD_THICKNESS = 4.0f;
-    /** Base height of the cloud layer bottom. */
-    private static final float CLOUD_BASE = 191.0f;
+    /**
+     * Base height of the storm deck.
+     *
+     * Vanilla's clouds sit at about y=192 and use this same 12-block cell size
+     * and 4-block thickness, so a deck drawn at the same altitude interleaves
+     * with them into one flat grey plate. A storm deck hangs lower than the
+     * fair-weather cloud layer anyway, so it sits well below and reads as its
+     * own deck underneath.
+     */
+    private static final float CLOUD_BASE = 170.0f;
+    /** How far a cell's base wanders from the deck, so it is not a flat plate. */
+    private static final float DECK_ROUGHNESS = 9.0f;
+    /** Thickness multiplier range across cells: thin wisps up to piled-up cloud. */
+    private static final float MIN_THICKNESS_SCALE = 0.55f;
+    private static final float MAX_THICKNESS_SCALE = 2.2f;
+    /**
+     * Cells whose noise lands within this much of the coverage threshold fade
+     * out instead of stopping dead, so the deck has a ragged fringe rather than
+     * a wall at its edge.
+     */
+    private static final float COVERAGE_FEATHER = 0.14f;
     /** How far away clouds are visible (in blocks). */
     private static final float MAX_DIST = ZONE_SIZE * 4.5f;
     /** Clouds drift speed (blocks per tick). */
@@ -52,13 +71,31 @@ public class StormCloudRenderer {
     private static final float ALPHA_SNOW = 0.42f;
     private static final float ALPHA_HAIL = 0.56f;
 
-    private static final int CLOUD_LAYERS = 1;
-    private static final float[] CLOUD_LAYER_HEIGHT = {0f};
-    private static final float[] CLOUD_LAYER_COVERAGE_ADJUST = {0f};
-    private static final float[] CLOUD_LAYER_ALPHA_SCALE = {1f};
-    private static final float[] CLOUD_LAYER_WIND_SCALE = {1.0f};
+    /**
+     * Three decks at different heights. Each carries its own noise pattern, so
+     * they do not stack into one plate, and each drifts at its own speed — the
+     * parallax between them is most of what makes the sky read as deep rather
+     * than as a ceiling. The upper and lower decks are progressively sparser and
+     * fainter so the middle one stays the body of the storm.
+     */
+    private static final int CLOUD_LAYERS = 3;
+    private static final float[] CLOUD_LAYER_HEIGHT = {0f, 3f, -12f};
+    private static final float[] CLOUD_LAYER_COVERAGE_ADJUST = {0f, -0.16f, -0.24f};
+    private static final float[] CLOUD_LAYER_ALPHA_SCALE = {1f, 0.72f, 0.5f};
+    private static final float[] CLOUD_LAYER_WIND_SCALE = {1.0f, 1.15f, 0.85f};
 
-    private static final RenderLayer CLOUD_RENDER_LAYER = RenderLayers.translucentMovingBlock();
+    /**
+     * Position + colour only, which is exactly what this renderer emits.
+     *
+     * {@code RenderLayers.translucentMovingBlock()} is a textured block layer: its vertex format also wants
+     * UV0, UV2 and Normal, and BufferBuilder throws "Missing elements in
+     * vertex" rather than defaulting them, so this crashed the moment any
+     * geometry was actually drawn. The debug filled-box layer is built from a
+     * POSITION_COLOR / QUADS snippet with translucent blending and culling left
+     * on, so it matches this geometry without inventing texture, lightmap or
+     * normal data.
+     */
+    private static final RenderLayer CLOUD_RENDER_LAYER = RenderLayers.debugFilledBox();
 
     public static void register() {
         WorldRenderEvents.AFTER_ENTITIES.register(StormCloudRenderer::render);
@@ -154,9 +191,19 @@ public class StormCloudRenderer {
 
                         float cellWX = zoneWorldX + cx * CELL_SIZE + layerDriftX;
                         float cellWZ = zoneWorldZ + cz * CELL_SIZE + layerDriftZ;
-                        float shapeOffset = 0f;
-                        float thickness = CLOUD_THICKNESS;
-                        float alpha = config.baseAlpha * weatherIntensity * CLOUD_LAYER_ALPHA_SCALE[layer] * distFade * edgeFade;
+                        // Per-cell height and thickness, so the deck is lumpy
+                        // instead of a slab of identical boxes.
+                        float layerShape = cellNoise(worldCellX, worldCellZ, layer + 7);
+                        float shapeOffset = (baseCellShape - 0.5f) * DECK_ROUGHNESS;
+                        float thickness = CLOUD_THICKNESS
+                                * (MIN_THICKNESS_SCALE + layerShape * (MAX_THICKNESS_SCALE - MIN_THICKNESS_SCALE));
+
+                        // Fade cells that only just made the coverage cut.
+                        float fringeFade = Math.min(1f,
+                                (layerCoverage - cellNoise(worldCellX, worldCellZ, layer)) / COVERAGE_FEATHER);
+
+                        float alpha = config.baseAlpha * weatherIntensity * CLOUD_LAYER_ALPHA_SCALE[layer]
+                                * distFade * edgeFade * fringeFade;
                         alpha = Math.min(1f, alpha + thunderPulse);
                         if (alpha < 0.01f) continue;
 
