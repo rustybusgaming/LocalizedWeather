@@ -17,11 +17,29 @@ tag/branch. The `1.3.x` line is the last release for 1.21.x.
 
 | Target | Line | Covers | Fabric API | Java |
 | ------ | ---- | ------ | ---------- | ---- |
+| `1.21.9` | `v1_21_9` | 1.21.9 | 0.134.1+1.21.9 | 21 |
+| `1.21.10` | `v1_21_10` | 1.21.10 | 0.138.4+1.21.10 | 21 |
 | `1.21.11` | `v1_21` | 1.21.11 | 0.141.6+1.21.11 | 21 |
 | `26.1.2` | `v26` | 26.1, 26.1.1, 26.1.2 | 0.155.3+26.1.2 | 25 |
 | `26.2` | `v26` | 26.2 | 0.159.0+26.2 | 25 |
 
-### Why there are two source lines
+### Why each 1.21.x point release needs its own line
+
+Minecraft's rendering API broke between every one of them, so the line cannot
+be shared even within 1.21:
+
+- **1.21.10** renamed the layer accessor: `RenderLayer.getTranslucentMovingBlock()`
+  where 1.21.11 has `RenderLayers.translucentMovingBlock()`.
+- **1.21.9** has no world-render event in Fabric API at all. Its
+  `fabric-rendering-v1` (16.0.1) ships no `WorldRenderEvents` in any package —
+  it reappears as `…rendering.v1.world.WorldRenderEvents` only from the
+  16.2.x builds. So on 1.21.9 there is nothing public to hang custom world
+  geometry on, and that target ships **without the storm clouds, hail particles
+  and rain wall**. Zone weather, the rain and fog gradients, sky darkening,
+  precipitation type and directional thunder are all mixin-driven and work
+  normally there.
+
+### Why the 1.21 and 26 lines are separate
 
 The two lines cannot share Minecraft-facing code, and not because of the API
 changes — because of naming:

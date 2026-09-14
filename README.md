@@ -9,9 +9,9 @@
 Rain, snow, hail and thunderstorms happen independently across the world — you can stand in sunshine and watch a storm roll in over the hills.
 
 [![Build](https://github.com/rustybusgaming/LocalizedWeather/actions/workflows/build.yml/badge.svg)](https://github.com/rustybusgaming/LocalizedWeather/actions/workflows/build.yml)
-[![Minecraft](https://img.shields.io/badge/Minecraft-26.1%20%E2%80%93%2026.2-brightgreen)](https://www.minecraft.net/)
-[![Loader](https://img.shields.io/badge/loader-Fabric-dbd0b4)](https://fabricmc.net/)
-[![Java](https://img.shields.io/badge/Java-25-orange)](https://adoptium.net/)
+[![Minecraft](https://img.shields.io/badge/Minecraft-1.21.9%20%E2%80%93%2026.2-brightgreen)](https://www.minecraft.net/)
+[![Loader](https://img.shields.io/badge/loader-Fabric%20%7C%20Quilt%20%7C%20NeoForge-dbd0b4)](https://fabricmc.net/)
+[![Java](https://img.shields.io/badge/Java-21%20%7C%2025-orange)](https://adoptium.net/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 </div>
@@ -57,10 +57,10 @@ Storms further away than the fog horizon are not culled. Their geometry is proje
 
 ## Requirements
 
-- Minecraft **1.21.11**, or **26.1 – 26.2** (see the version table below)
-- **Fabric Loader 0.19.2+** on 1.21.11, **0.19.5+** on 26.x
+- Minecraft **1.21.9 – 1.21.11**, or **26.1 – 26.2** (see the version table below)
+- **Fabric Loader 0.19.2+** on 1.21.x, **0.19.5+** on 26.x
 - **Fabric API**
-- Java 21 on 1.21.11, Java 25 on 26.x
+- Java 21 on 1.21.x, Java 25 on 26.x
 
 ## Installation
 
@@ -74,6 +74,8 @@ Storms further away than the fog horizon are not culled. Their geometry is proje
 
 | Minecraft | Build target | Fabric API | Java |
 | --------- | ------------ | ---------- | ---- |
+| 1.21.9 | `-Pmc=1.21.9` | 0.134.1+1.21.9 | 21 |
+| 1.21.10 | `-Pmc=1.21.10` | 0.138.4+1.21.10 | 21 |
 | 1.21.11 | `-Pmc=1.21.11` | 0.141.6+1.21.11 | 21 |
 | 26.1, 26.1.1, 26.1.2 | `-Pmc=26.1.2` (default) | 0.155.3+26.1.2 | 25 |
 | 26.2 | `-Pmc=26.2` | 0.159.0+26.2 | 25 |
@@ -126,9 +128,13 @@ cd LocalizedWeather
 ./gradlew printTarget      # show the resolved target
 ```
 
-Needs **JDK 25** — Minecraft 26.x is compiled for it. You do not have to install
-one: Gradle fetches a matching JDK on first build if your machine has none. Jars
-land in `build/libs/` as `localweather-<mod version>+<minecraft version>.jar`.
+Needs **JDK 21** for the 1.21.x targets and **JDK 25** for 26.x. You do not have
+to install either: Gradle fetches a matching JDK on first build if your machine
+has none. Jars land in `build/libs/` as
+`localweather-<mod version>+<minecraft version>.jar`.
+
+On 1.21.9 the storm clouds, hail particles and rain wall are absent — Fabric API
+for that version exposes no world-render hook. Everything else works there.
 
 ## Credits
 
