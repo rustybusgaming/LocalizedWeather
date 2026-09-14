@@ -1,7 +1,8 @@
 # NeoForge Module
 
-A NeoForge build of Localized Weather for Minecraft 26.1.x, built separately
-from the Fabric jar:
+A NeoForge build of Localized Weather for Minecraft 26.1.x. It ships as a
+release artifact, `localweather-<mod version>+<minecraft version>-neoforge.jar`,
+built by its own job in the release workflow. Locally:
 
 ```bash
 ../gradlew -p neoforge build

@@ -176,6 +176,10 @@ Three things keep that tree loader-free:
 The four client mixins are shared verbatim — they touch no loader API, so each
 platform just declares the same config.
 
+NeoForge ships as a release artifact alongside the Fabric jars, built by its own
+job in the release workflow — it is a separate Gradle build with its own jar and
+no Fabric API dependency, so it cannot ride the `-Pmc` matrix.
+
 The three server-side mixins are shared too, so localized weather is physically
 real on NeoForge rather than only drawn: vanilla's global weather is
 suppressed, `isRainingAt` is answered from the zone, and `/weather` applies to
