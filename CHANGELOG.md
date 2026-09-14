@@ -21,6 +21,7 @@ share everything that touches no Minecraft API.
 - Support for Minecraft 1.21.9, 1.21.10, 1.21.11, 26.1.x and 26.2 from a single repository
 - Version targeting: one properties file per Minecraft line in `versions/`, selected with `-Pmc=<target>`, plus a `printTarget` task
 - CI build and release matrices covering every supported target
+- Mod Menu integration on Fabric and Quilt: the mod's entry now carries Website, Source and Issues links, and a description that matches what the mod actually does
 - NeoForge module in `neoforge/` for 26.1.x, running both the zone simulation and the full client presentation from the same code the Fabric build runs
 - Forge module in `forge/` for 26.1.x, running the shared simulation server-side
 
