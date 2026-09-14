@@ -3,9 +3,13 @@
   "id": "localweather",
   "version": "${version}",
   "name": "Localized Weather",
-  "description": "Per-zone localized weather with biome-aware rules, smooth transitions, and Minecraft-style storm clouds.",
+  "description": "Weather happens per 256x256 zone instead of world-wide: rain, snow, hail and thunderstorms run on their own schedules, biome rules decide what falls, and moving single-cell thunderstorms drift along the wind carrying a rain wall and trailing rain bands. Zone edges blend, so you can stand in sunshine and watch a storm roll in over the hills.",
   "authors": ["fentbusgaming"],
-  "contact": {},
+  "contact": {
+    "homepage": "https://modrinth.com/mod/localizedweather",
+    "sources": "https://github.com/rustybusgaming/LocalizedWeather",
+    "issues": "https://github.com/rustybusgaming/LocalizedWeather/issues"
+  },
   "license": "MIT",
   "icon": "assets/localweather/icon.png",
   "environment": "*",
