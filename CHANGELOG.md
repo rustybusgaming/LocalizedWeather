@@ -28,6 +28,9 @@ moves the whole mod onto Mojang's own names and targets the 26.x line.
 - Jars are now named `localweather-<mod version>+<minecraft version>.jar`
 
 ### Changed
+- The 26.x weather simulation is loader-agnostic and shared with the NeoForge module rather than duplicated — Minecraft 26.x uses Mojang's names on both loaders, so only the glue differs. `WeatherSync` is the seam: each loader supplies networking and calls `WeatherZoneManager.tick(server)` from its own tick event
+- NeoForge module moved to 26.1.x and now runs the zone simulation, storm cells and lightning server-side; client sync is still not ported, so it runs with no networking and remains a non-release artifact
+- Quilt is built for the 1.21.x line only. Quilt resolves mods through an intermediate namespace and publishes none for 26.x — its hashed mappings 404 for 26.1.2 — so a 26.x Quilt jar could only declare a namespace that does not exist
 - Vanilla's cloud layer is hidden once the storm deck has taken over the sky, so the two are not stacked; the swap uses hysteresis and only happens when the deck is already dense enough to hide them
 - Storm clouds hang as their own deck below vanilla's cloud layer instead of sharing its altitude, where the two interleaved into a single flat plate — both use 12-block cells and 4-block thickness, so they were drawing into each other
 - The deck is three layers at different heights, each with its own noise pattern, drift speed and opacity, so the sky has depth rather than reading as a ceiling
