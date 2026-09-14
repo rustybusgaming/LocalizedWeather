@@ -64,9 +64,14 @@ Storms further away than the fog horizon are not culled. Their geometry is proje
 
 ## Installation
 
-1. Install [Fabric Loader](https://fabricmc.net/use/installer/) and [Fabric API](https://modrinth.com/mod/fabric-api)
-2. Drop the jar matching your Minecraft version into your `mods` folder
+1. Install [Fabric Loader](https://fabricmc.net/use/installer/) and [Fabric API](https://modrinth.com/mod/fabric-api) — or NeoForge, which needs neither
+2. Drop the jar matching your Minecraft version and loader into your `mods` folder
 3. Launch the game — the weather takes it from there
+
+Jars are named `localweather-<mod version>+<Minecraft version>[-loader].jar`.
+A plain name is the Fabric build; `-quilt` and `-neoforge` are the others.
+For example, on Minecraft 26.1.2: `localweather-1.4.0+26.1.2.jar` for Fabric,
+`localweather-1.4.0+26.1.2-neoforge.jar` for NeoForge.
 
 **Optional:** [Mod Menu](https://modrinth.com/mod/modmenu) for in-game mod info.
 
@@ -88,7 +93,7 @@ named differently between them — see [docs/loader-support.md](docs/loader-supp
 | ------ | ------ |
 | **Fabric** | ✅ Primary supported loader |
 | **Quilt** | ✅ 1.21.x only — Quilt publishes no intermediate namespace for 26.x, so no Quilt jar is built there |
-| **NeoForge** | 🚧 [`neoforge/`](neoforge/README.md) on 26.1.x runs the simulation, the full client presentation *and* the server-side mixins from the same shared code as Fabric — feature-complete, but not yet published as a release artifact |
+| **NeoForge** | ✅ [`neoforge/`](neoforge/README.md) on 26.1.x — the simulation, the full client presentation and the server-side mixins, all from the same shared code as Fabric |
 | **Forge** | 🚧 [`forge/`](forge/README.md) on 26.1.x, at the same level as NeoForge — server-side simulation from the same shared code, no client sync, not a release artifact |
 
 See [docs/loader-support.md](docs/loader-support.md) for the full breakdown.

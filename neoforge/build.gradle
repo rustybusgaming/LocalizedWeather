@@ -3,11 +3,17 @@ plugins {
     id 'net.neoforged.moddev' version '2.0.143'
 }
 
-version = project.mod_version
+// Match the Fabric jars' naming so the two are told apart on a release page:
+// localweather-<mod version>+<minecraft version>-neoforge.jar
+version = "${project.mod_version}+${project.minecraft_version}"
 group = project.mod_group_id
 
 base {
     archivesName = project.archives_base_name
+}
+
+jar {
+    archiveClassifier = 'neoforge'
 }
 
 java {
