@@ -9,7 +9,33 @@ permissions:
   contents: write
 
 jobs:
+  # The release and its notes are created once, here, rather than inside the
+  # matrix. action-gh-release regenerates the notes every time it updates a
+  # release, so generating them per target stacked one "What's Changed" section
+  # onto the body per Minecraft version.
+  create-release:
+    runs-on: ubuntu-latest
+    name: Create GitHub Release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Read mod version
+        id: version
+        run: |
+          MOD_VERSION=$(grep '^mod_version=' gradle.properties | cut -d= -f2)
+          echo "mod_version=$MOD_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Create the release
+        uses: softprops/action-gh-release@v3
+        with:
+          name: Localized Weather v${{ steps.version.outputs.mod_version }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+
   release:
+    needs: create-release
     runs-on: ubuntu-latest
     strategy:
       # Publish one target at a time so a failure on one Minecraft line does not
@@ -80,19 +106,39 @@ jobs:
           echo "Fabric jar: $FABRIC_JAR"
           echo "Quilt jar: $QUILT_JAR"
 
-      - name: Create or update GitHub Release
+      # Only attaches this target's jars. The release, its name and its notes
+      # were settled by the create-release job, so nothing here rewrites them.
+      - name: Upload jars to the GitHub Release
         uses: softprops/action-gh-release@v3
         with:
-          name: Localized Weather v${{ steps.target.outputs.mod_version }}
           files: ${{ steps.jars.outputs.files }}
-          generate_release_notes: true
-          draft: false
-          prerelease: false
+          generate_release_notes: false
+
+      # Modrinth's version-create API wants the project's base62 id in the
+      # request body, and rejects a slug with
+      # "Base62 decoding overflowed" — which is what every release from v1.2.1
+      # to v1.4.0 died on, because MODRINTH_PROJECT_ID held the slug. Resolving
+      # through the API accepts either spelling, so the variable can hold the
+      # slug, the id, or nothing at all, and a project that genuinely cannot be
+      # resolved fails here with a readable message instead of a 400 later.
+      - name: Resolve Modrinth project ID
+        id: modrinth
+        run: |
+          REF="${{ vars.MODRINTH_PROJECT_ID }}"
+          REF="${REF:-localizedweather}"
+          RESOLVED=$(curl -fsSL --retry 3 --retry-delay 2 \
+            "https://api.modrinth.com/v2/project/${REF}" | jq -r '.id // empty')
+          if [ -z "$RESOLVED" ]; then
+            echo "::error::Could not resolve Modrinth project '${REF}'."
+            exit 1
+          fi
+          echo "Resolved Modrinth project '${REF}' to id ${RESOLVED}"
+          echo "id=${RESOLVED}" >> "$GITHUB_OUTPUT"
 
       - name: Publish to Modrinth
         uses: Kir-Antipov/mc-publish@v3.3
         with:
-          modrinth-id: ${{ vars.MODRINTH_PROJECT_ID }}
+          modrinth-id: ${{ steps.modrinth.outputs.id }}
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
           files: ${{ steps.jars.outputs.fabric }}
           name: Localized Weather v${{ steps.target.outputs.release_version }}
