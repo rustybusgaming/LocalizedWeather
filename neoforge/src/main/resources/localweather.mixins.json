@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "net.fentbusgaming.localweather.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "mixins": [
+    "ServerWorldMixin",
+    "WeatherCommandMixin",
+    "RainAtMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

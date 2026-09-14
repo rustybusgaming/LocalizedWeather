@@ -88,7 +88,7 @@ named differently between them — see [docs/loader-support.md](docs/loader-supp
 | ------ | ------ |
 | **Fabric** | ✅ Primary supported loader |
 | **Quilt** | ✅ 1.21.x only — Quilt publishes no intermediate namespace for 26.x, so no Quilt jar is built there |
-| **NeoForge** | 🚧 [`neoforge/`](neoforge/README.md) on 26.1.x runs the simulation *and* the full client presentation from the same shared code as Fabric; the server-side mixins are not ported, so vanilla weather still runs alongside it and it is not a release artifact |
+| **NeoForge** | 🚧 [`neoforge/`](neoforge/README.md) on 26.1.x runs the simulation, the full client presentation *and* the server-side mixins from the same shared code as Fabric — feature-complete, but not yet published as a release artifact |
 | **Forge** | 🚧 [`forge/`](forge/README.md) on 26.1.x, at the same level as NeoForge — server-side simulation from the same shared code, no client sync, not a release artifact |
 
 See [docs/loader-support.md](docs/loader-support.md) for the full breakdown.

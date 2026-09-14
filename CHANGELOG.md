@@ -22,7 +22,7 @@ share everything that touches no Minecraft API.
 - Version targeting: one properties file per Minecraft line in `versions/`, selected with `-Pmc=<target>`, plus a `printTarget` task
 - CI build and release matrices covering every supported target
 - Mod Menu integration on Fabric and Quilt: the mod's entry now carries Website, Source and Issues links, and a description that matches what the mod actually does
-- NeoForge module in `neoforge/` for 26.1.x, running both the zone simulation and the full client presentation from the same code the Fabric build runs
+- NeoForge module in `neoforge/` for 26.1.x, running the zone simulation, the full client presentation and the server-side mixins from the same code the Fabric build runs — so localized weather is physically real there, not merely drawn
 - Forge module in `forge/` for 26.1.x, running the shared simulation server-side
 
 ### Changed
@@ -49,7 +49,7 @@ share everything that touches no Minecraft API.
 - Storm clouds and hail particles render again — their renderers lost their registrations in 1.3.0 and had not drawn anything since
 
 ### Notes
-- **NeoForge and Forge are not release artifacts.** NeoForge draws localized weather but its server-side mixins are not ported, so vanilla weather still runs alongside the zone simulation there. Forge is server-side only, with no client sync
+- **NeoForge and Forge are not published as release artifacts yet.** NeoForge is feature-complete against the Fabric build; Forge is server-side only, with no client sync
 - On 1.21.9 the storm clouds, hail particles and rain wall are absent: Fabric API for that version exposes no world-render hook. Everything else works there
 
 ## [1.3.0] - 2026-08-04

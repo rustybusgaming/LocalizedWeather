@@ -50,14 +50,16 @@ Everything the Fabric build shows a client, except where noted below:
   four client mixins the Fabric build uses
 - Directional thunder and rain ambience
 
+Localized weather is physically real here, not just drawn. The same three
+server-side mixins the Fabric build uses are loaded from the same source:
+`ServerWorldMixin` suppresses vanilla's global weather, `RainAtMixin` answers
+`isRainingAt` from the zone at that position, and `WeatherCommandMixin` points
+`/weather` at the player's zone.
+
 ## What does not
 
-The server-side mixins are not ported. The Fabric build also suppresses vanilla
-weather and answers `isRainingAt` from the zone (`ServerWorldMixin`,
-`RainAtMixin`, `WeatherCommandMixin`); those are not set up here, so vanilla
-weather still runs alongside the zone simulation and `/weather` behaves as it
-does in vanilla. Localized weather is drawn but is not yet physically real on
-this platform.
+Nothing known. This module now runs the same simulation, the same client
+presentation and the same mixins as the Fabric build.
 
 ## A NeoForge 26.x detail worth knowing
 
