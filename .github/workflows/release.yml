@@ -152,25 +152,28 @@ jobs:
 
       # CurseForge only accepts its numeric project id and cannot resolve a
       # slug, and there is no public endpoint to look one up, so it cannot be
-      # normalised the way the Modrinth id is. Checking here keeps a
-      # misconfigured CurseForge from failing a release that GitHub and
-      # Modrinth have already published, and says plainly what to set.
-      - name: Check CurseForge project ID
+      # normalised through the API the way the Modrinth id is. The variable is
+      # used when it is numeric and the known id is used otherwise, so a wrong
+      # value warns rather than dropping CurseForge from the release.
+      - name: Resolve CurseForge project ID
         id: cf
+        env:
+          # LocalizedWeather's CurseForge project id. Public — it is printed on
+          # the project page — and hardcoded so a wrong or missing variable
+          # cannot silently drop CurseForge from a release again.
+          DEFAULT_ID: '1515451'
         run: |
           ID="${{ vars.CURSEFORGE_PROJECT_ID }}"
-          if [[ "$ID" =~ ^[0-9]+$ ]]; then
-            echo "configured=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::warning::CURSEFORGE_PROJECT_ID is '${ID:-<unset>}'. CurseForge needs the numeric project id, shown as \"Project ID\" on the project page, and cannot resolve a slug. Skipping CurseForge."
-            echo "configured=false" >> "$GITHUB_OUTPUT"
+          if [[ ! "$ID" =~ ^[0-9]+$ ]]; then
+            echo "::warning::CURSEFORGE_PROJECT_ID is '${ID:-<unset>}', which is not a numeric project id; using ${DEFAULT_ID}."
+            ID="$DEFAULT_ID"
           fi
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
 
       - name: Publish to CurseForge
-        if: steps.cf.outputs.configured == 'true'
         uses: Kir-Antipov/mc-publish@v3.3
         with:
-          curseforge-id: ${{ vars.CURSEFORGE_PROJECT_ID }}
+          curseforge-id: ${{ steps.cf.outputs.id }}
           curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
           files: ${{ steps.jars.outputs.fabric }}
           name: Localized Weather v${{ steps.target.outputs.release_version }}

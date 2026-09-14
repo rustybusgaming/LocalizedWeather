@@ -176,11 +176,10 @@ Three things keep that tree loader-free:
 The four client mixins are shared verbatim — they touch no loader API, so each
 platform just declares the same config.
 
-What is still missing is the **server-side** mixins: vanilla weather
-suppression, `isRainingAt` answered from the zone, and the `/weather` override.
-Localized weather is therefore drawn on NeoForge but not yet physically real
-there, and the module is not a release artifact. See
-[`neoforge/README.md`](../neoforge/README.md).
+The three server-side mixins are shared too, so localized weather is physically
+real on NeoForge rather than only drawn: vanilla's global weather is
+suppressed, `isRainingAt` is answered from the zone, and `/weather` applies to
+the player's zone. See [`neoforge/README.md`](../neoforge/README.md).
 
 `@Mod(value = MOD_ID, dist = Dist.CLIENT)` keeps the client entry point, and
 everything it reaches, off a dedicated server. Payload handlers are registered
