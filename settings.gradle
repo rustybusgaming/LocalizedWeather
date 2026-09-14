@@ -4,3 +4,10 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+
+plugins {
+    // Minecraft 26.x is built for Java 25. This lets Gradle fetch a matching JDK
+    // itself when the machine does not have one, instead of failing the build with
+    // "Cannot find a Java installation ... matching: {languageVersion=25}".
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}

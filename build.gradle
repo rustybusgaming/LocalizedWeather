@@ -1,11 +1,58 @@
 plugins {
-    id 'fabric-loom' version '1.16-SNAPSHOT'
+    // Two different plugins, same artifact and version: 'fabric-loom' is the
+    // mapped, obfuscated-era one that 1.21.x needs, and 'net.fabricmc.fabric-loom'
+    // is the unobfuscated-era one that 26.x needs. Each refuses the other's
+    // world, so the right one is applied once the target is known.
+    id 'fabric-loom' version "${loom_version}" apply false
+    id 'net.fabricmc.fabric-loom' version "${loom_version}" apply false
     id 'maven-publish'
 }
 
-// Carry the game version in the artifact name so releases for different
-// Minecraft lines never collide on Modrinth or in a mods folder.
-version = "${project.mod_version}+${project.minecraft_version}"
+// ---------------------------------------------------------------------------
+// Version targeting
+//
+// Every supported Minecraft version has a file in versions/. Pick one with
+// -Pmc=<name>, e.g. ./gradlew build -Pmc=26.2. Without it the target named by
+// default_target in gradle.properties is used.
+//
+// Each target names a source "line" as well as a game version. The two lines
+// cannot share Minecraft-facing code:
+//
+//   1.21.x — Fabric API for these versions ships its access wideners in the
+//            intermediary namespace, so the build must be mapped, and Yarn is
+//            the only usable mapping set (Mojang mappings are refused on an
+//            already-deobfuscated game).
+//   26.x   — no intermediary namespace exists and Loom has no mappings step,
+//            so the game is compiled against Mojang's own names.
+//
+// So every Minecraft symbol is named differently between them, on top of the
+// real API changes. src/<line>/ holds each line's code; src/shared/ holds the
+// classes that touch no Minecraft API at all and are genuinely common.
+// ---------------------------------------------------------------------------
+
+def target = providers.gradleProperty('mc').getOrElse(project.default_target)
+def targetFile = file("versions/${target}.properties")
+if (!targetFile.exists()) {
+    def available = fileTree('versions').files.collect { it.name - '.properties' }.sort()
+    throw new GradleException("Unknown target '${target}'. Available targets: ${available.join(', ')}")
+}
+
+def targetProps = new Properties()
+targetFile.withInputStream { targetProps.load(it) }
+
+ext {
+    minecraft_version = targetProps.getProperty('minecraft_version')
+    fabric_api_version = targetProps.getProperty('fabric_api_version')
+    minecraft_dependency = targetProps.getProperty('minecraft_dependency')
+    java_release = targetProps.getProperty('java_release') as int
+    source_line = targetProps.getProperty('source_line')
+    yarn_mappings = targetProps.getProperty('yarn_mappings')   // 1.21.x only
+}
+
+def mapped = yarn_mappings != null
+apply plugin: mapped ? 'fabric-loom' : 'net.fabricmc.fabric-loom'
+
+version = "${project.mod_version}+${minecraft_version}"
 group = project.maven_group
 
 base {
@@ -13,12 +60,18 @@ base {
 }
 
 repositories {
-    maven { url "https://maven.isxander.dev/releases" }
-    maven { url "https://api.modrinth.com/maven" }
+    maven { url = "https://maven.isxander.dev/releases" }
+    maven { url = "https://api.modrinth.com/maven" }
 }
 
 loom {
     splitEnvironmentSourceSets()
+
+    // A world saved by one target cannot be read by the other line, so keep a
+    // run directory per target rather than one shared run/.
+    runs.configureEach {
+        runDir = "run/${target}"
+    }
 
     mods {
         "localweather" {
@@ -28,51 +81,105 @@ loom {
     }
 }
 
-dependencies {
-    // To change the versions see the gradle.properties file
-    minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+// Point the split source sets at the active line, plus the shared classes.
+sourceSets {
+    main {
+        // src/<line>/common holds code that is Minecraft-facing but not
+        // loader-facing, so another loader's module can compile it too.
+        java.srcDirs = ["src/shared/java", "src/${source_line}/common/java", "src/${source_line}/main/java"]
+        resources.srcDirs = ["src/main/resources", "src/${source_line}/main/resources"]
+    }
+    client {
+        // src/<line>/clientcommon holds client code that is Minecraft-facing
+        // but not loader-facing, so another loader's module can compile it too.
+        // Only the 26.x line has one; the glob is empty elsewhere.
+        java.srcDirs = ["src/${source_line}/clientcommon/java", "src/${source_line}/client/java"]
+        resources.srcDirs = ["src/${source_line}/client/resources"]
+    }
+}
 
-    // Mod Menu
-    modRuntimeOnly "maven.modrinth:modmenu:17.0.0"
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+
+    if (mapped) {
+        // 1.21.x is consumed through Yarn, so mod dependencies are remapped.
+        mappings "net.fabricmc:yarn:${yarn_mappings}:v2"
+        modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+        modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+    } else {
+        // 26.x needs no mappings, so nothing is remapped either.
+        implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+        implementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+    }
 }
 
 processResources {
     inputs.property "version", project.version
+    inputs.property "minecraft_dependency", minecraft_dependency
+    inputs.property "java_release", java_release
 
     filesMatching(["fabric.mod.json", "quilt.mod.json"]) {
-        expand "version": project.version
+        expand(
+                "version": project.version,
+                "minecraft_dependency": minecraft_dependency,
+                "loader_version": project.loader_version,
+                "java_release": java_release
+        )
     }
 }
 
-tasks.withType(JavaCompile).configureEach {
-    it.options.release = 21
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(java_release)
+    }
+    withSourcesJar()
 }
 
-java {
-    withSourcesJar()
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = java_release
 }
 
 jar {
     from("LICENSE") {
-        rename { "${it}_${project.archivesBaseName}" }
+        rename { "${it}_${project.base.archivesName.get()}" }
     }
 }
 
-tasks.register("quiltJar", Jar) {
-    dependsOn tasks.remapJar
-    archiveClassifier = "quilt"
+// A mapped build has a remap step and an unmapped one does not, so the Quilt
+// jar repackages whichever task actually produced the shippable artifact.
+def shippableJar = mapped ? tasks.named("remapJar") : tasks.named("jar")
 
-    from {
-        zipTree(tasks.remapJar.archiveFile)
+// Quilt is only shipped for the mapped line. Quilt resolves mods through an
+// intermediate namespace, and it publishes none for 26.x — its hashed mappings
+// 404 for 26.1.2 while 1.21.11 has them — so a 26.x Quilt jar could only
+// declare a namespace that does not exist for that game. quilt.mod.json
+// therefore lives in the 1.21.x line.
+if (mapped) {
+    tasks.register("quiltJar", Jar) {
+        dependsOn shippableJar
+        archiveClassifier = "quilt"
+
+        from {
+            zipTree(shippableJar.get().archiveFile)
+        }
+        exclude "fabric.mod.json"
     }
-    exclude "fabric.mod.json"
+
+    tasks.named("build") {
+        dependsOn tasks.named("quiltJar")
+    }
 }
 
-tasks.named("build") {
-    dependsOn tasks.named("quiltJar")
+/** Prints the resolved target, so CI and scripts do not have to parse properties. */
+tasks.register("printTarget") {
+    doLast {
+        println "target=${target}"
+        println "source_line=${source_line}"
+        println "minecraft_version=${minecraft_version}"
+        println "mappings=${mapped ? yarn_mappings : 'none (official names)'}"
+        println "fabric_api_version=${fabric_api_version}"
+        println "minecraft_dependency=${minecraft_dependency}"
+        println "java_release=${java_release}"
+        println "mod_version=${project.version}"
+    }
 }

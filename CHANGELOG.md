@@ -2,7 +2,14 @@
 
 All notable changes to Localized Weather will be documented in this file.
 
-## [1.4.0] - 2026-09-10
+## [1.4.0] - 2026-09-14
+
+The multi-version release. One repository now builds **Minecraft 1.21.9,
+1.21.10, 1.21.11, 26.1.x and 26.2** — pick a target with `-Pmc=<target>`, each
+one a file in `versions/`. Minecraft 26.1 dropped obfuscation and retired Yarn
+mappings, so the 26.x line compiles against Mojang's own names while the 1.21.x
+line stays on Yarn. The two keep separate source directories for that reason and
+share everything that touches no Minecraft API.
 
 ### Added
 - Moving single-cell thunderstorms — a thundery zone now spawns a travelling storm core that drifts along the wind, wanders slightly off-heading, and grows and dissipates over its own life span
@@ -11,9 +18,38 @@ All notable changes to Localized Weather will be documented in this file.
 - Distant storms keep their rain wall and rain bands: a cell past the fog horizon is scaled onto it rather than culled, so its apparent size is unchanged and a thunderstorm several zones away is still drawn
 - Storm cells drive rain where their core passes, so the rain arrives with the wall and leaves with it
 - `LocalWeatherAPI.getStormCells`, `getStormCellAt` and `isInStormCell` for querying moving cells
+- Support for Minecraft 1.21.9, 1.21.10, 1.21.11, 26.1.x and 26.2 from a single repository
+- Version targeting: one properties file per Minecraft line in `versions/`, selected with `-Pmc=<target>`, plus a `printTarget` task
+- CI build and release matrices covering every supported target
+- NeoForge module in `neoforge/` for 26.1.x, running both the zone simulation and the full client presentation from the same code the Fabric build runs
+- Forge module in `forge/` for 26.1.x, running the shared simulation server-side
+
+### Changed
+- The 26.x line is compiled against Mojang's names — Minecraft ships unobfuscated as of 26.1, so there is no intermediary namespace and Loom no longer has a remap step there
+- Rewrote the 26.x renderers for its submit-node pipeline: geometry is handed to `submitCustomGeometry` on `LevelRenderEvents.COLLECT_SUBMITS` instead of being written to a `MultiBufferSource` during `WorldRenderEvents.AFTER_ENTITIES`
+- Renderers read the camera from the frame's own render state, which is stable across 26.1 and 26.2 (26.2 moved the camera off `GameRenderer`)
+- Retargeted every 26.x mixin at its new name: `advanceWeatherCycle`, `setClear`/`setRain`/`setThunder`, `getPrecipitationAt`, `setupFog`, `extractRenderState`
+- 26.x requires Java 25 and Fabric Loader 0.19.5+, with mixin compatibility level `JAVA_25`; 1.21.x still runs on Java 21
+- Jars are now named `localweather-<mod version>+<minecraft version>.jar`
+- The 26.x weather simulation is loader-agnostic and shared rather than duplicated — Minecraft 26.x uses Mojang's names on Fabric, NeoForge and Forge alike, so only the glue differs. `WeatherSync` is the seam: each loader supplies networking and calls `WeatherZoneManager.tick(server)` from its own tick event
+- The client half of the 26.x line moved to `src/v26/clientcommon`, shared with NeoForge. The payloads moved to `src/v26/common` — they are vanilla `CustomPacketPayload` types, so the wire format is one piece of code on every loader — and the renderers take the `LevelRenderState`, `SubmitNodeCollector` and `PoseStack` that a 26.x submit-collect callback carries on either loader, instead of a loader-specific render context
+- Quilt is built for the 1.21.x line only. Quilt resolves mods through an intermediate namespace and publishes none for 26.x — its hashed mappings 404 for 26.1.2 — so a 26.x Quilt jar could only declare a namespace that does not exist
+- Vanilla's cloud layer is hidden once the storm deck has taken over the sky, so the two are not stacked; the swap uses hysteresis and only happens when the deck is already dense enough to hide them
+- Storm clouds hang as their own deck below vanilla's cloud layer instead of sharing its altitude, where the two interleaved into a single flat plate — both use 12-block cells and 4-block thickness, so they were drawing into each other
+- The deck is three layers at different heights, each with its own noise pattern, drift speed and opacity, so the sky has depth rather than reading as a ceiling
+- Cell height and thickness vary per cell, and cells near the coverage threshold fade out, giving the deck a lumpy body and a ragged fringe instead of uniform boxes ending in a wall
 
 ### Fixed
+- **1.21.9 and 1.21.10 could not start a client at all.** Both carried 1.21.11's signatures for `FogMixin` (`applyStartEndModifier` takes an entity and a block position on those versions, a `Camera` on 1.21.11) and `SkyColorMixin` (`updateRenderState` takes a `Vec3d`, not a `Camera`). An injected method's descriptor has to match its target exactly, so mixin application failed outright and the game never reached the title screen
+- **The renderers crashed on the first frame of weather they drew**, on 1.21.10 and 1.21.11 as well as 26.x. All three wrote position and colour into `translucentMovingBlock`, a textured block layer whose vertex format also wants UV0, UV2 and Normal; `BufferBuilder` throws `Missing elements in vertex` rather than defaulting them. Every line now draws on the debug filled-box layer, which is POSITION_COLOR
+- Localized rain is physically real, not just visual. Vanilla weather is suppressed, so `isRainingAt` could never be true and nothing in the world reacted to a storm; it is now answered from the zone at that position, which restores mobs not burning in daylight under rain, cauldrons filling, farmland hydrating and campfires going out — per zone rather than world-wide
+- Thunderstorms strike lightning again. Vanilla drives lightning from its global thunder state, which the mod suppresses, so storms struck nothing at all
+- Zone weather changes reach the client for the whole area it caches. Changes were broadcast only to players within 1 zone while the client is sent and keeps a 5x5 grid, so a storm two zones out stayed stale until the player crossed a zone boundary — audible, but with no clouds drawn
 - Storm clouds and hail particles render again — their renderers lost their registrations in 1.3.0 and had not drawn anything since
+
+### Notes
+- **NeoForge and Forge are not release artifacts.** NeoForge draws localized weather but its server-side mixins are not ported, so vanilla weather still runs alongside the zone simulation there. Forge is server-side only, with no client sync
+- On 1.21.9 the storm clouds, hail particles and rain wall are absent: Fabric API for that version exposes no world-render hook. Everything else works there
 
 ## [1.3.0] - 2026-08-04
 
