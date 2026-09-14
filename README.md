@@ -10,7 +10,7 @@ Rain, snow, hail and thunderstorms happen independently across the world — you
 
 [![Build](https://github.com/rustybusgaming/LocalizedWeather/actions/workflows/build.yml/badge.svg)](https://github.com/rustybusgaming/LocalizedWeather/actions/workflows/build.yml)
 [![Minecraft](https://img.shields.io/badge/Minecraft-1.21.9%20%E2%80%93%2026.2-brightgreen)](https://www.minecraft.net/)
-[![Loader](https://img.shields.io/badge/loader-Fabric%20%7C%20Quilt%20%7C%20NeoForge-dbd0b4)](https://fabricmc.net/)
+[![Loader](https://img.shields.io/badge/loader-Fabric%20%7C%20Quilt%20%7C%20NeoForge%20%7C%20Forge-dbd0b4)](https://fabricmc.net/)
 [![Java](https://img.shields.io/badge/Java-21%20%7C%2025-orange)](https://adoptium.net/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
@@ -89,6 +89,7 @@ named differently between them — see [docs/loader-support.md](docs/loader-supp
 | **Fabric** | ✅ Primary supported loader |
 | **Quilt** | ✅ 1.21.x only — Quilt publishes no intermediate namespace for 26.x, so no Quilt jar is built there |
 | **NeoForge** | 🚧 [`neoforge/`](neoforge/README.md) on 26.1.x simulates weather server-side, sharing the simulation with Fabric; client sync is not ported, so it is not a release artifact |
+| **Forge** | 🚧 [`forge/`](forge/README.md) on 26.1.x, at the same level as NeoForge — server-side simulation from the same shared code, no client sync, not a release artifact |
 
 See [docs/loader-support.md](docs/loader-support.md) for the full breakdown.
 

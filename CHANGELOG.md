@@ -18,6 +18,7 @@ moves the whole mod onto Mojang's own names and targets the 26.x line.
 - Support for Minecraft 26.1, 26.1.1, 26.1.2 and 26.2 from a single source tree
 - Version targeting: one properties file per Minecraft line in `versions/`, selected with `-Pmc=<target>`, plus a `printTarget` task
 - CI build and release matrices covering every supported target
+- Forge module in `forge/` for 26.1.x, at the same level as the NeoForge one: it compiles the shared simulation out of the Fabric tree and runs zones, storm cells and lightning server-side. No client sync, so it is not a release artifact
 
 ### Changed
 - Ported from Yarn to Mojang mappings — Minecraft ships unobfuscated as of 26.1, so there is no intermediary namespace and Loom no longer has a remap step

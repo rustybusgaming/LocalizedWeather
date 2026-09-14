@@ -144,3 +144,27 @@ and calls `WeatherZoneManager.tick(server)` from its own tick event.
 Server-side weather works. Client sync does not: no payloads are registered on
 this platform, so it runs with `WeatherSync.NONE` and clients see nothing. It
 is still not a release artifact. See [`neoforge/README.md`](../neoforge/README.md).
+
+## Forge
+
+The module in [`forge/`](../forge) targets **26.1.x** and sits at the same level
+as the NeoForge one: it compiles `src/shared/java` and `src/v26/common/java`
+straight out of the Fabric tree, adds its glue in `src/forge/main/java`, and
+runs the zone simulation, storm cells and lightning server-side. Client sync is
+not ported, so it runs with `WeatherSync.NONE` and is not a release artifact.
+
+Two things differ from NeoForge in more than spelling:
+
+- **Tick events lost their phase field.** Forge 26.x split `TickEvent` into
+  per-phase record events, each carrying its own static `EventBus`, so the glue
+  subscribes to `TickEvent.ServerTickEvent.Post.BUS` rather than annotating a
+  handler and testing `event.phase`. The server is `event.server()`.
+- **Dev runs need the mod's resources beside its classes.** FML's classpath
+  locator builds a dev-mode mod file from the one directory holding
+  `META-INF/mods.toml`; under Gradle's default layout that is
+  `build/resources/main`, which contains no classes, so the run reports the
+  declared mod as missing. `forge/build.gradle` points the source set's
+  resources output at the classes directory to put both halves where the
+  locator looks. The packaged jar is unaffected.
+
+See [`forge/README.md`](../forge/README.md).
