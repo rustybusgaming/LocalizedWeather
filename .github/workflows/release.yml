@@ -150,7 +150,24 @@ jobs:
             P7dR8mSH(required)
             mOgUt4GM(optional)
 
+      # CurseForge only accepts its numeric project id and cannot resolve a
+      # slug, and there is no public endpoint to look one up, so it cannot be
+      # normalised the way the Modrinth id is. Checking here keeps a
+      # misconfigured CurseForge from failing a release that GitHub and
+      # Modrinth have already published, and says plainly what to set.
+      - name: Check CurseForge project ID
+        id: cf
+        run: |
+          ID="${{ vars.CURSEFORGE_PROJECT_ID }}"
+          if [[ "$ID" =~ ^[0-9]+$ ]]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::CURSEFORGE_PROJECT_ID is '${ID:-<unset>}'. CurseForge needs the numeric project id, shown as \"Project ID\" on the project page, and cannot resolve a slug. Skipping CurseForge."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish to CurseForge
+        if: steps.cf.outputs.configured == 'true'
         uses: Kir-Antipov/mc-publish@v3.3
         with:
           curseforge-id: ${{ vars.CURSEFORGE_PROJECT_ID }}
