@@ -1,7 +1,5 @@
 package net.fentbusgaming.localweather.mixin;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
 import net.fentbusgaming.localweather.network.ClientWeatherHandler;
 import net.minecraft.client.renderer.CloudRenderer;
 import org.spongepowered.asm.mixin.Mixin;
@@ -17,7 +15,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * than per-zone; it keys off the blended rain gradient at the player, which is
  * already the zone weather they are standing in.
  */
-@Environment(EnvType.CLIENT)
 @Mixin(CloudRenderer.class)
 public abstract class CloudMixin {
 

@@ -131,19 +131,46 @@ the Quilt jar when the target is unmapped and `quilt.mod.json` lives in
 
 ## NeoForge
 
-The module in [`neoforge/`](../neoforge) targets **26.1.x** and now runs the
-weather simulation for real, rather than only validating an entry point.
+The module in [`neoforge/`](../neoforge) targets **26.1.x** and runs both halves
+of the mod: the simulation server-side and the full client presentation.
 
-Because 26.x is compiled against Mojang's names on both loaders, the simulation
-is shared rather than duplicated: the module compiles `src/shared/java` and
-`src/v26/common/java` directly out of the Fabric tree and adds only its own
-glue in `src/neoforge/main/java`. `WeatherSync` is the one seam — the
-simulation pushes updates into it, and each loader supplies an implementation
-and calls `WeatherZoneManager.tick(server)` from its own tick event.
+Because 26.x is compiled against Mojang's names on every loader, almost none of
+it is duplicated. The module compiles `src/shared/java`, `src/v26/common/java`
+and `src/v26/clientcommon/java` directly out of the Fabric tree and adds only
+its own glue in `src/neoforge/main/java` and `src/neoforge/client/java`.
 
-Server-side weather works. Client sync does not: no payloads are registered on
-this platform, so it runs with `WeatherSync.NONE` and clients see nothing. It
-is still not a release artifact. See [`neoforge/README.md`](../neoforge/README.md).
+Three things keep that tree loader-free:
+
+- **`WeatherSync`** — the simulation pushes zone, wind and storm-cell updates
+  into it; each loader supplies an implementation and calls
+  `WeatherZoneManager.tick(server)` from its own tick event.
+- **`WeatherPayloads`** — the three clientbound payloads are vanilla
+  `CustomPacketPayload` records with vanilla stream codecs, so the wire format
+  is the same code on both loaders. Fabric registers them through
+  `PayloadTypeRegistry` and sends with `ServerPlayNetworking`; NeoForge
+  registers through `RegisterPayloadHandlersEvent` and sends with
+  `PacketDistributor`.
+- **The renderers take vanilla types.** A 26.x submit-collect callback carries a
+  `LevelRenderState`, a `SubmitNodeCollector` and a `PoseStack` on either
+  loader, so the renderers take those three directly rather than a
+  loader-specific context. Fabric passes them from
+  `LevelRenderEvents.COLLECT_SUBMITS`, NeoForge from
+  `SubmitCustomGeometryEvent`.
+
+The four client mixins are shared verbatim — they touch no loader API, so each
+platform just declares the same config.
+
+What is still missing is the **server-side** mixins: vanilla weather
+suppression, `isRainingAt` answered from the zone, and the `/weather` override.
+Localized weather is therefore drawn on NeoForge but not yet physically real
+there, and the module is not a release artifact. See
+[`neoforge/README.md`](../neoforge/README.md).
+
+`@Mod(value = MOD_ID, dist = Dist.CLIENT)` keeps the client entry point, and
+everything it reaches, off a dedicated server. Payload handlers are registered
+on both distributions — the server needs the types to send them — but are
+written as lambda bodies so the client-only classes they name link on first
+delivery, which never happens server-side.
 
 ## Forge
 

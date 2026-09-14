@@ -90,7 +90,10 @@ sourceSets {
         resources.srcDirs = ["src/main/resources", "src/${source_line}/main/resources"]
     }
     client {
-        java.srcDirs = ["src/${source_line}/client/java"]
+        // src/<line>/clientcommon holds client code that is Minecraft-facing
+        // but not loader-facing, so another loader's module can compile it too.
+        // Only the 26.x line has one; the glob is empty elsewhere.
+        java.srcDirs = ["src/${source_line}/clientcommon/java", "src/${source_line}/client/java"]
         resources.srcDirs = ["src/${source_line}/client/resources"]
     }
 }

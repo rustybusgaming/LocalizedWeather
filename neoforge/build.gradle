@@ -22,7 +22,9 @@ sourceSets {
         java.srcDirs += [
             "${rootDir}/../src/shared/java",
             "${rootDir}/../src/v26/common/java",
-            "${rootDir}/../src/neoforge/main/java"
+            "${rootDir}/../src/v26/clientcommon/java",
+            "${rootDir}/../src/neoforge/main/java",
+            "${rootDir}/../src/neoforge/client/java"
         ]
     }
 }

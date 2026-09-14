@@ -1,14 +1,11 @@
 package net.fentbusgaming.localweather.network;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fentbusgaming.localweather.LocalWeatherMod;
 import net.fentbusgaming.localweather.weather.WeatherZone;
 import net.fentbusgaming.localweather.weather.WeatherZoneManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -21,8 +18,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * boundaries. Also computes a "storm direction" vector so cloud/sky/fog
  * mixins can darken toward approaching storms.
  */
-@Environment(EnvType.CLIENT)
 public final class ClientWeatherHandler {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger("localweather");
 
     /** Zone size in blocks (must match server). */
     private static final int ZONE_SIZE_BLOCKS = WeatherZoneManager.CHUNKS_PER_ZONE * 16; // 256
@@ -127,46 +125,41 @@ public final class ClientWeatherHandler {
     // Registration
     // -------------------------------------------------------------------------
 
-    public static void register() {
-        ClientPlayNetworking.registerGlobalReceiver(
-                WeatherPackets.WeatherUpdatePayload.ID,
-                (payload, context) -> {
-                    WeatherZone.WeatherType[] values = WeatherZone.WeatherType.values();
-                    int currentOrdinal = payload.currentWeatherOrdinal();
-                    int targetOrdinal = payload.targetWeatherOrdinal();
-                    if (currentOrdinal < 0 || currentOrdinal >= values.length
-                            || targetOrdinal < 0 || targetOrdinal >= values.length) {
-                        LocalWeatherMod.LOGGER.warn("[LocalWeather] Invalid weather update: {} -> {}", currentOrdinal, targetOrdinal);
-                        return;
-                    }
-                    WeatherZone.WeatherType currentWeather = values[currentOrdinal];
-                    WeatherZone.WeatherType targetWeather = values[targetOrdinal];
-                    float progress = Math.clamp(payload.transitionProgress(), 0.0f, 1.0f);
-                    int zx = payload.zoneX();
-                    int zz = payload.zoneZ();
+    /**
+     * Applies one zone update. Each platform hands its received payload here
+     * from whatever receiver it registers; nothing above this line is
+     * loader-specific.
+     */
+    public static void handleWeatherUpdate(WeatherPayloads.WeatherUpdatePayload payload) {
+        WeatherZone.WeatherType[] values = WeatherZone.WeatherType.values();
+        int currentOrdinal = payload.currentWeatherOrdinal();
+        int targetOrdinal = payload.targetWeatherOrdinal();
+        if (currentOrdinal < 0 || currentOrdinal >= values.length
+                || targetOrdinal < 0 || targetOrdinal >= values.length) {
+            LOGGER.warn("[LocalWeather] Invalid weather update: {} -> {}", currentOrdinal, targetOrdinal);
+            return;
+        }
+        WeatherZone.WeatherType currentWeather = values[currentOrdinal];
+        WeatherZone.WeatherType targetWeather = values[targetOrdinal];
+        float progress = Math.clamp(payload.transitionProgress(), 0.0f, 1.0f);
+        int zx = payload.zoneX();
+        int zz = payload.zoneZ();
 
-                    long key = pack(zx, zz);
-                    ZONE_STATES.put(key, new ZoneState(currentWeather, targetWeather, progress, zx, zz));
-                }
-        );
+        ZONE_STATES.put(pack(zx, zz), new ZoneState(currentWeather, targetWeather, progress, zx, zz));
+    }
 
-        ClientPlayNetworking.registerGlobalReceiver(
-                WeatherPackets.WindUpdatePayload.ID,
-                (payload, context) -> {
-                    windDirX = payload.windDirX();
-                    windDirZ = payload.windDirZ();
-                }
-        );
-
-        ClientTickEvents.END_CLIENT_TICK.register(ClientWeatherHandler::onClientTick);
-        LocalWeatherMod.LOGGER.info("[LocalWeather] Client weather handler registered.");
+    /** Applies one wind update, same contract as {@link #handleWeatherUpdate}. */
+    public static void handleWindUpdate(WeatherPayloads.WindUpdatePayload payload) {
+        windDirX = payload.windDirX();
+        windDirZ = payload.windDirZ();
     }
 
     // -------------------------------------------------------------------------
     // Per-tick smooth blending
     // -------------------------------------------------------------------------
 
-    private static void onClientTick(Minecraft client) {
+    /** Advances the client-side blending. Called once per client tick by each platform. */
+    public static void clientTick(Minecraft client) {
         ClientLevel world = client.level;
         if (world != activeWorld) {
             activeWorld = world;

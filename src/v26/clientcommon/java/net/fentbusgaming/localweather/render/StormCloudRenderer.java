@@ -1,14 +1,13 @@
 package net.fentbusgaming.localweather.render;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
+import com.mojang.blaze3d.vertex.PoseStack;
 import net.fentbusgaming.localweather.network.ClientWeatherHandler;
 import net.fentbusgaming.localweather.weather.WeatherZone;
 import net.fentbusgaming.localweather.weather.WeatherZoneManager;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.state.level.LevelRenderState;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.world.phys.Vec3;
@@ -21,7 +20,6 @@ import java.util.Map;
  * same 12-block pixel scale as Minecraft's cloud texture, while vanilla keeps
  * ownership of the global cloud renderer for maximum renderer compatibility.
  */
-@Environment(EnvType.CLIENT)
 public class StormCloudRenderer {
 
     private static final int ZONE_SIZE = WeatherZoneManager.CHUNKS_PER_ZONE * 16;
@@ -93,22 +91,26 @@ public class StormCloudRenderer {
      */
     private static final RenderType CLOUD_RENDER_LAYER = RenderTypes.debugFilledBox();
 
-    public static void register() {
-        LevelRenderEvents.COLLECT_SUBMITS.register(StormCloudRenderer::render);
-    }
-
-    private static void render(LevelRenderContext context) {
+    /**
+     * Submits the cloud deck for this frame.
+     *
+     * The parameters are the three things a 26.x submit-collect callback carries
+     * on any loader — Fabric hands them over as one {@code LevelRenderContext},
+     * NeoForge as a {@code SubmitCustomGeometryEvent} — so taking them directly
+     * keeps this renderer loader-agnostic.
+     */
+    public static void render(LevelRenderState levelState, SubmitNodeCollector collector, PoseStack poseStack) {
         Minecraft client = Minecraft.getInstance();
         // The frame's own camera position, straight off the render state — the
         // camera moved off GameRenderer in 26.2, this reads the same on both.
-        Vec3 cam = context.levelState().cameraRenderState.pos;
+        Vec3 cam = levelState.cameraRenderState.pos;
 
         float tickDelta = client.getDeltaTracker().getGameTimeDeltaPartialTick(false);
 
         // 26.x builds the level from submitted nodes, so the overlay is handed
         // over as one custom-geometry node instead of written to a buffer here.
-        context.submitNodeCollector().submitCustomGeometry(
-                context.poseStack(),
+        collector.submitCustomGeometry(
+                poseStack,
                 CLOUD_RENDER_LAYER,
                 (pose, buffer) -> renderInternal(client, pose.pose(), buffer, tickDelta, cam));
     }

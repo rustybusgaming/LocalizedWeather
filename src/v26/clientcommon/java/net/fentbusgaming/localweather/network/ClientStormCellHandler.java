@@ -1,10 +1,5 @@
 package net.fentbusgaming.localweather.network;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fentbusgaming.localweather.LocalWeatherMod;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 
@@ -20,7 +15,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * when a packet lands. The rain wall and rain bands then travel smoothly with
  * the storm instead of jumping once per sync.
  */
-@Environment(EnvType.CLIENT)
 public final class ClientStormCellHandler {
 
     /** A cell that has not been re-sent for this long is retired. */
@@ -145,27 +139,24 @@ public final class ClientStormCellHandler {
     // Registration
     // -------------------------------------------------------------------------
 
-    public static void register() {
-        ClientPlayNetworking.registerGlobalReceiver(
-                WeatherPackets.StormCellPayload.ID,
-                (payload, context) -> {
-                    StormCellState existing = CELLS.get(payload.cellId());
-                    if (existing != null) {
-                        existing.update(payload.x(), payload.z(), payload.velX(), payload.velZ(),
-                                payload.radius(), payload.intensity());
-                    } else {
-                        CELLS.put(payload.cellId(), new StormCellState(payload.cellId(),
-                                payload.x(), payload.z(), payload.velX(), payload.velZ(),
-                                payload.radius(), payload.intensity()));
-                    }
-                }
-        );
-
-        ClientTickEvents.END_CLIENT_TICK.register(ClientStormCellHandler::onClientTick);
-        LocalWeatherMod.LOGGER.info("[LocalWeather] Client storm cell handler registered.");
+    /**
+     * Applies one cell update. Each platform hands its received payload here
+     * from whatever receiver it registers.
+     */
+    public static void handleStormCell(WeatherPayloads.StormCellPayload payload) {
+        StormCellState existing = CELLS.get(payload.cellId());
+        if (existing != null) {
+            existing.update(payload.x(), payload.z(), payload.velX(), payload.velZ(),
+                    payload.radius(), payload.intensity());
+        } else {
+            CELLS.put(payload.cellId(), new StormCellState(payload.cellId(),
+                    payload.x(), payload.z(), payload.velX(), payload.velZ(),
+                    payload.radius(), payload.intensity()));
+        }
     }
 
-    private static void onClientTick(Minecraft client) {
+    /** Extrapolates every cell one tick. Called once per client tick by each platform. */
+    public static void clientTick(Minecraft client) {
         ClientLevel world = client.level;
         if (world != activeWorld) {
             activeWorld = world;

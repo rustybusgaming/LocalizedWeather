@@ -10,6 +10,11 @@ description='''
 Per-zone localized weather with biome-aware rules and smooth transitions.
 '''
 
+# The client-side mixins are the same classes the Fabric build uses; they touch
+# no loader API, so both platforms load them from one source tree.
+[[mixins]]
+config="localweather.client.mixins.json"
+
 [[dependencies.${mod_id}]]
 modId="neoforge"
 type="required"
