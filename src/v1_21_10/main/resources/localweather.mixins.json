@@ -5,7 +5,8 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "ServerWorldMixin",
-    "WeatherCommandMixin"
+    "WeatherCommandMixin",
+    "RainAtMixin"
   ],
   "injectors": {
     "defaultRequire": 1

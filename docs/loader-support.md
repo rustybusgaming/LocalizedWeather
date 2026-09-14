@@ -30,6 +30,12 @@ be shared even within 1.21:
 
 - **1.21.10** renamed the layer accessor: `RenderLayer.getTranslucentMovingBlock()`
   where 1.21.11 has `RenderLayers.translucentMovingBlock()`.
+- **1.21.11** replaced two mixin target signatures the older releases still use:
+  `AtmosphericFogModifier.applyStartEndModifier` takes a `Camera` where 1.21.9
+  and 1.21.10 take an entity plus a block position, and
+  `SkyRendering.updateRenderState` takes a `Camera` where they take a `Vec3d`.
+  An injected method's descriptor must match its target exactly, so these cannot
+  be shared even though the bodies are identical.
 - **1.21.9** has no world-render event in Fabric API at all. Its
   `fabric-rendering-v1` (16.0.1) ships no `WorldRenderEvents` in any package —
   it reappears as `…rendering.v1.world.WorldRenderEvents` only from the
@@ -106,6 +112,16 @@ camera position from `LevelRenderContext.levelState().cameraRenderState.pos`,
 which is identical on both lines — and is the position the frame is actually
 drawn from. Prefer that kind of common API over a version-conditional branch.
 
+### Vertex formats in custom world geometry
+
+The three renderers emit position and colour only. `translucentMovingBlock` is a
+textured block layer whose vertex format also wants UV0, UV2 and Normal, and
+`BufferBuilder` throws `Missing elements in vertex` rather than defaulting them —
+on 1.21.10 and 1.21.11 as well as on 26.x. Every line therefore draws on the
+debug filled-box layer, which is a POSITION_COLOR / QUADS snippet with
+translucent blending and culling left on: it matches this geometry exactly,
+without inventing texture, lightmap or normal data.
+
 ## Fabric
 
 The primary supported loader. The jar uses Fabric Loader entrypoints, Fabric API
@@ -131,16 +147,67 @@ the Quilt jar when the target is unmapped and `quilt.mod.json` lives in
 
 ## NeoForge
 
-The module in [`neoforge/`](../neoforge) targets **26.1.x** and now runs the
-weather simulation for real, rather than only validating an entry point.
+The module in [`neoforge/`](../neoforge) targets **26.1.x** and runs both halves
+of the mod: the simulation server-side and the full client presentation.
 
-Because 26.x is compiled against Mojang's names on both loaders, the simulation
-is shared rather than duplicated: the module compiles `src/shared/java` and
-`src/v26/common/java` directly out of the Fabric tree and adds only its own
-glue in `src/neoforge/main/java`. `WeatherSync` is the one seam — the
-simulation pushes updates into it, and each loader supplies an implementation
-and calls `WeatherZoneManager.tick(server)` from its own tick event.
+Because 26.x is compiled against Mojang's names on every loader, almost none of
+it is duplicated. The module compiles `src/shared/java`, `src/v26/common/java`
+and `src/v26/clientcommon/java` directly out of the Fabric tree and adds only
+its own glue in `src/neoforge/main/java` and `src/neoforge/client/java`.
 
-Server-side weather works. Client sync does not: no payloads are registered on
-this platform, so it runs with `WeatherSync.NONE` and clients see nothing. It
-is still not a release artifact. See [`neoforge/README.md`](../neoforge/README.md).
+Three things keep that tree loader-free:
+
+- **`WeatherSync`** — the simulation pushes zone, wind and storm-cell updates
+  into it; each loader supplies an implementation and calls
+  `WeatherZoneManager.tick(server)` from its own tick event.
+- **`WeatherPayloads`** — the three clientbound payloads are vanilla
+  `CustomPacketPayload` records with vanilla stream codecs, so the wire format
+  is the same code on both loaders. Fabric registers them through
+  `PayloadTypeRegistry` and sends with `ServerPlayNetworking`; NeoForge
+  registers through `RegisterPayloadHandlersEvent` and sends with
+  `PacketDistributor`.
+- **The renderers take vanilla types.** A 26.x submit-collect callback carries a
+  `LevelRenderState`, a `SubmitNodeCollector` and a `PoseStack` on either
+  loader, so the renderers take those three directly rather than a
+  loader-specific context. Fabric passes them from
+  `LevelRenderEvents.COLLECT_SUBMITS`, NeoForge from
+  `SubmitCustomGeometryEvent`.
+
+The four client mixins are shared verbatim — they touch no loader API, so each
+platform just declares the same config.
+
+What is still missing is the **server-side** mixins: vanilla weather
+suppression, `isRainingAt` answered from the zone, and the `/weather` override.
+Localized weather is therefore drawn on NeoForge but not yet physically real
+there, and the module is not a release artifact. See
+[`neoforge/README.md`](../neoforge/README.md).
+
+`@Mod(value = MOD_ID, dist = Dist.CLIENT)` keeps the client entry point, and
+everything it reaches, off a dedicated server. Payload handlers are registered
+on both distributions — the server needs the types to send them — but are
+written as lambda bodies so the client-only classes they name link on first
+delivery, which never happens server-side.
+
+## Forge
+
+The module in [`forge/`](../forge) targets **26.1.x** and sits at the same level
+as the NeoForge one: it compiles `src/shared/java` and `src/v26/common/java`
+straight out of the Fabric tree, adds its glue in `src/forge/main/java`, and
+runs the zone simulation, storm cells and lightning server-side. Client sync is
+not ported, so it runs with `WeatherSync.NONE` and is not a release artifact.
+
+Two things differ from NeoForge in more than spelling:
+
+- **Tick events lost their phase field.** Forge 26.x split `TickEvent` into
+  per-phase record events, each carrying its own static `EventBus`, so the glue
+  subscribes to `TickEvent.ServerTickEvent.Post.BUS` rather than annotating a
+  handler and testing `event.phase`. The server is `event.server()`.
+- **Dev runs need the mod's resources beside its classes.** FML's classpath
+  locator builds a dev-mode mod file from the one directory holding
+  `META-INF/mods.toml`; under Gradle's default layout that is
+  `build/resources/main`, which contains no classes, so the run reports the
+  declared mod as missing. `forge/build.gradle` points the source set's
+  resources output at the classes directory to put both halves where the
+  locator looks. The packaged jar is unaffected.
+
+See [`forge/README.md`](../forge/README.md).

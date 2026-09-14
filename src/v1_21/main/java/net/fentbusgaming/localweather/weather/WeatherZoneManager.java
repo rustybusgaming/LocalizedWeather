@@ -7,8 +7,12 @@ import net.minecraft.registry.RegistryKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.entity.EntityType;
+import net.minecraft.entity.LightningEntity;
+import net.minecraft.entity.SpawnReason;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import net.minecraft.world.Heightmap;
 
@@ -48,6 +52,16 @@ public class WeatherZoneManager {
 
     private static final Random RANDOM = new Random();
 
+    /**
+     * Odds per player per tick of a lightning strike while standing in a thunder
+     * zone — roughly one strike a minute nearby. Vanilla drives lightning from
+     * its global thunder state, which this mod suppresses, so thunderstorms
+     * struck nothing at all until now.
+     */
+    private static final int LIGHTNING_CHANCE = 1200;
+    /** Horizontal spread of strikes around the player, in blocks. */
+    private static final int LIGHTNING_SPREAD = 48;
+
     // How often (in ticks) we re-evaluate zone weather (besides duration expiry).
     // This controls how often we broadcast changed zone weather to nearby players.
     private static final int SYNC_INTERVAL = 20; // every 1 second
@@ -77,6 +91,10 @@ public class WeatherZoneManager {
 
         // Moving single-cell thunderstorms drift on top of the zone grid.
         StormCellManager.tick(server);
+
+        for (ServerWorld world : server.getWorlds()) {
+            tickLightning(world);
+        }
 
         syncTimer++;
         windSyncTimer++;
@@ -118,6 +136,34 @@ public class WeatherZoneManager {
                 }
                 markDirty(world.getRegistryKey(), zoneKey);
             }
+        }
+    }
+
+    /**
+     * Strike lightning inside thundery zones. Positions are filtered through
+     * hasRain, so a strike only lands where the rain actually reaches.
+     */
+    private static void tickLightning(ServerWorld world) {
+        for (ServerPlayerEntity player : world.getPlayers()) {
+            ChunkPos chunkPos = player.getChunkPos();
+            WeatherZone zone = getZone(world, chunkPos.x >> 4, chunkPos.z >> 4);
+            if (zone == null || zone.getCurrentWeather() != WeatherZone.WeatherType.THUNDER) continue;
+            if (RANDOM.nextInt(LIGHTNING_CHANCE) != 0) continue;
+
+            BlockPos around = player.getBlockPos().add(
+                    RANDOM.nextInt(LIGHTNING_SPREAD * 2 + 1) - LIGHTNING_SPREAD,
+                    0,
+                    RANDOM.nextInt(LIGHTNING_SPREAD * 2 + 1) - LIGHTNING_SPREAD);
+            BlockPos target = new BlockPos(
+                    around.getX(),
+                    world.getTopY(Heightmap.Type.MOTION_BLOCKING, around.getX(), around.getZ()),
+                    around.getZ());
+            if (!world.isPosLoaded(target) || !world.hasRain(target)) continue;
+
+            LightningEntity bolt = EntityType.LIGHTNING_BOLT.create(world, SpawnReason.EVENT);
+            if (bolt == null) continue;
+            bolt.refreshPositionAfterTeleport(Vec3d.ofBottomCenter(target));
+            world.spawnEntity(bolt);
         }
     }
 
@@ -313,8 +359,12 @@ public class WeatherZoneManager {
             int pZoneX = chunkPos.x >> 4;
             int pZoneZ = chunkPos.z >> 4;
 
-            // Send to players in this zone and adjacent zones (so transitions look smooth at borders)
-            if (Math.abs(pZoneX - zone.getZoneX()) <= 1 && Math.abs(pZoneZ - zone.getZoneZ()) <= 1) {
+            // Match the radius the client is sent on arrival and keeps cached. At
+            // radius 1 a zone further out that changed weather was never pushed,
+            // so distant storms stayed stale until the player crossed a zone
+            // boundary — audible and lit, but with no clouds drawn.
+            if (Math.abs(pZoneX - zone.getZoneX()) <= CLIENT_ZONE_RADIUS
+                    && Math.abs(pZoneZ - zone.getZoneZ()) <= CLIENT_ZONE_RADIUS) {
                 WeatherPackets.sendWeatherUpdate(player, zone);
             }
         }
@@ -399,7 +449,8 @@ public class WeatherZoneManager {
             ChunkPos chunkPos = player.getChunkPos();
             int pZoneX = chunkPos.x >> 4;
             int pZoneZ = chunkPos.z >> 4;
-            if (Math.abs(pZoneX - zoneX) <= 1 && Math.abs(pZoneZ - zoneZ) <= 1) {
+            if (Math.abs(pZoneX - zoneX) <= CLIENT_ZONE_RADIUS
+                    && Math.abs(pZoneZ - zoneZ) <= CLIENT_ZONE_RADIUS) {
                 WeatherPackets.sendWeatherUpdate(player, zone);
             }
         }

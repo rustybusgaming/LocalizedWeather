@@ -1,8 +1,5 @@
 package net.fentbusgaming.localweather.sound;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fentbusgaming.localweather.network.ClientWeatherHandler;
 import net.fentbusgaming.localweather.weather.WeatherZone;
 import net.fentbusgaming.localweather.weather.WeatherZoneManager;
@@ -17,7 +14,6 @@ import java.util.Random;
  * Plays thunder sounds from the direction of nearby thunder zones
  * rather than using vanilla's overhead-only thunder.
  */
-@Environment(EnvType.CLIENT)
 public class DirectionalThunderSound {
 
     private static final int ZONE_SIZE = WeatherZoneManager.CHUNKS_PER_ZONE * 16;
@@ -33,11 +29,8 @@ public class DirectionalThunderSound {
 
     private static int ticksUntilNext = MIN_INTERVAL + RANDOM.nextInt(MAX_INTERVAL - MIN_INTERVAL);
 
-    public static void register() {
-        ClientTickEvents.END_CLIENT_TICK.register(DirectionalThunderSound::onTick);
-    }
-
-    private static void onTick(Minecraft client) {
+    /** Called once per client tick by each platform. */
+    public static void clientTick(Minecraft client) {
         if (client.level == null || client.player == null) return;
         if (client.isPaused()) return;
 

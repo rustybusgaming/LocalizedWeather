@@ -1,13 +1,12 @@
 package net.fentbusgaming.localweather.render;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.fentbusgaming.localweather.network.ClientStormCellHandler;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.state.level.LevelRenderState;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
@@ -28,7 +27,6 @@ import org.joml.Matrix4f;
  * (and therefore the apparent size) intact while pulling it back inside the
  * fog envelope. A thunderstorm several zones away still shows its rain wall.
  */
-@Environment(EnvType.CLIENT)
 public class RainCurtainRenderer {
 
     /** Cloud layer bottom, matching {@link StormCloudRenderer}. */
@@ -99,26 +97,23 @@ public class RainCurtainRenderer {
      */
     private static final RenderType CURTAIN_RENDER_LAYER = RenderTypes.debugFilledBox();
 
-    public static void register() {
-        LevelRenderEvents.COLLECT_SUBMITS.register(RainCurtainRenderer::render);
-    }
-
-    private static void render(LevelRenderContext context) {
+    /** Submits the rain wall and rain bands for this frame. See {@link StormCloudRenderer#render}. */
+    public static void render(LevelRenderState levelState, SubmitNodeCollector collector, PoseStack poseStack) {
         if (!ClientStormCellHandler.hasCells()) return;
 
         Minecraft client = Minecraft.getInstance();
         if (client.level == null) return;
 
         float tickDelta = client.getDeltaTracker().getGameTimeDeltaPartialTick(false);
-        Vec3 cam = context.levelState().cameraRenderState.pos;
+        Vec3 cam = levelState.cameraRenderState.pos;
         double time = client.level.getGameTime() + tickDelta;
         double horizon = horizonDistance(client);
 
         // 26.x renders the level from submitted nodes rather than from an
         // immediate-mode buffer, so the curtain geometry is handed over as one
         // custom-geometry node and built when the translucent pass runs.
-        context.submitNodeCollector().submitCustomGeometry(
-                context.poseStack(),
+        collector.submitCustomGeometry(
+                poseStack,
                 CURTAIN_RENDER_LAYER,
                 (pose, buffer) -> {
                     Matrix4f mat = pose.pose();

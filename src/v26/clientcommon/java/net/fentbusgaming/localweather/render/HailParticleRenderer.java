@@ -1,15 +1,14 @@
 package net.fentbusgaming.localweather.render;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
+import com.mojang.blaze3d.vertex.PoseStack;
 import net.fentbusgaming.localweather.network.ClientWeatherHandler;
 import net.fentbusgaming.localweather.weather.WeatherZone;
 import net.fentbusgaming.localweather.weather.WeatherZoneManager;
 import net.minecraft.client.Minecraft;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.client.renderer.state.level.LevelRenderState;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 
@@ -19,7 +18,6 @@ import java.util.Map;
  * Renders hail particles (ice crystals) during hail weather.
  * Uses deterministic hash-based spawning so particles are consistent across frames.
  */
-@Environment(EnvType.CLIENT)
 public class HailParticleRenderer {
 
     private static final int ZONE_SIZE = WeatherZoneManager.CHUNKS_PER_ZONE * 16;
@@ -31,11 +29,8 @@ public class HailParticleRenderer {
     private static final float PARTICLE_SHIMMER = 0.05f;
     private static final float MAX_DIST = ZONE_SIZE * 3.5f;
 
-    public static void register() {
-        LevelRenderEvents.COLLECT_SUBMITS.register(HailParticleRenderer::render);
-    }
-
-    public static void render(LevelRenderContext context) {
+    /** Submits the hail particles for this frame. See {@link StormCloudRenderer#render}. */
+    public static void render(LevelRenderState levelState, SubmitNodeCollector collector, PoseStack poseStack) {
         Minecraft client = Minecraft.getInstance();
         if (client.level == null) return;
 
@@ -44,11 +39,11 @@ public class HailParticleRenderer {
             .anyMatch(z -> z.getWeatherIntensity(WeatherZone.WeatherType.HAIL) > 0.1f);
         if (!anyHail) return;
 
-        Vec3 cam = context.levelState().cameraRenderState.pos;
+        Vec3 cam = levelState.cameraRenderState.pos;
         long worldTime = client.level.getGameTime();
 
-        context.submitNodeCollector().submitCustomGeometry(
-                context.poseStack(),
+        collector.submitCustomGeometry(
+                poseStack,
                 // POSITION_COLOR layer — see StormCloudRenderer for why this is not
                 // the textured translucentMovingBlock layer.
                 RenderTypes.debugFilledBox(),

@@ -53,7 +53,9 @@ public class HailParticleRenderer {
 
         matrices.push();
         Matrix4f mat = matrices.peek().getPositionMatrix();
-        VertexConsumer buffer = consumers.getBuffer(RenderLayers.translucentMovingBlock());
+        // POSITION_COLOR layer — see StormCloudRenderer for why this is not
+        // the textured translucentMovingBlock layer.
+        VertexConsumer buffer = consumers.getBuffer(RenderLayers.debugFilledBox());
 
         for (ClientWeatherHandler.ZoneState zone : zones.values()) {
             if (zone.getWeatherIntensity(WeatherZone.WeatherType.HAIL) < 0.1f) continue;

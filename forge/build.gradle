@@ -1,0 +1,87 @@
+plugins {
+    id 'java'
+    id 'net.minecraftforge.gradle' version '[7.0.17,8)'
+}
+
+version = project.mod_version
+group = project.mod_group_id
+
+base {
+    archivesName = project.archives_base_name
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(25)
+
+// The loader-agnostic half of the mod is compiled straight from the Fabric
+// tree rather than copied. Minecraft 26.x uses Mojang's own names on Fabric,
+// NeoForge and Forge alike, so the simulation is common to all three and only
+// the glue differs.
+sourceSets {
+    main {
+        java.srcDirs += [
+            "${rootDir}/../src/shared/java",
+            "${rootDir}/../src/v26/common/java",
+            "${rootDir}/../src/forge/main/java"
+        ]
+    }
+}
+
+// A dev run loads the mod from loose directories rather than a jar, and FML's
+// classpath locator builds the mod file from the single directory that holds
+// META-INF/mods.toml. With Gradle's default layout that is build/resources/main,
+// which contains no classes, so the run finds the metadata but not the @Mod
+// class and refuses to load. Emitting resources into the classes directory puts
+// both halves where the locator looks.
+sourceSets.main.output.resourcesDir = layout.buildDirectory.dir('classes/java/main')
+
+minecraft {
+    runs {
+        configureEach {
+            workingDir = layout.projectDirectory.dir('run')
+        }
+        register('client')
+        register('server') {
+            args '--nogui'
+        }
+    }
+}
+
+repositories {
+    minecraft.mavenizer(it)
+    maven fg.forgeMaven
+    maven fg.minecraftLibsMaven
+    mavenCentral()
+}
+
+dependencies {
+    implementation minecraft.dependency("net.minecraftforge:forge:${project.forge_version}")
+}
+
+processResources {
+    inputs.properties([
+            mod_id: project.mod_id,
+            mod_name: project.mod_name,
+            mod_license: project.mod_license,
+            mod_version: project.mod_version,
+            minecraft_version: project.minecraft_version,
+            minecraft_version_next: project.minecraft_version_next,
+            forge_spec_version: project.forge_spec_version
+    ])
+
+    filesMatching('META-INF/mods.toml') {
+        expand([
+                mod_id: project.mod_id,
+                mod_name: project.mod_name,
+                mod_license: project.mod_license,
+                mod_version: project.mod_version,
+                minecraft_version: project.minecraft_version,
+                minecraft_version_next: project.minecraft_version_next,
+                forge_spec_version: project.forge_spec_version
+        ])
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 25
+    options.encoding = 'UTF-8'
+}

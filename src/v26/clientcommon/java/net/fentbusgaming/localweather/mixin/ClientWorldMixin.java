@@ -1,7 +1,5 @@
 package net.fentbusgaming.localweather.mixin;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
 import net.fentbusgaming.localweather.network.ClientWeatherHandler;
 import net.fentbusgaming.localweather.weather.WeatherZone;
 import net.minecraft.core.BlockPos;
@@ -19,7 +17,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * For CLEAR, we rely on rainGradient being 0 to naturally suppress particles.
  * For RAIN/THUNDER/HAIL, vanilla decides based on biome temperature.
  */
-@Environment(EnvType.CLIENT)
 @Mixin(Biome.class)
 public abstract class ClientWorldMixin {
 

@@ -1,7 +1,5 @@
 package net.fentbusgaming.localweather.mixin;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
 import net.fentbusgaming.localweather.network.ClientWeatherHandler;
 import net.minecraft.client.Camera;
 import net.minecraft.client.DeltaTracker;
@@ -18,7 +16,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * cause a light fog effect that thickens as the storm gets closer, giving
  * the feeling of an approaching weather front.
  */
-@Environment(EnvType.CLIENT)
 @Mixin(AtmosphericFogEnvironment.class)
 public abstract class FogMixin {
 

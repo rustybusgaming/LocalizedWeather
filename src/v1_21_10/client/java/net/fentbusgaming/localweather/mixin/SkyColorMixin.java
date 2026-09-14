@@ -4,10 +4,10 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fentbusgaming.localweather.network.ClientWeatherHandler;
 import net.fentbusgaming.localweather.weather.WeatherZone;
-import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.SkyRendering;
 import net.minecraft.client.render.state.SkyRenderState;
 import net.minecraft.client.world.ClientWorld;
+import net.minecraft.util.math.Vec3d;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -17,9 +17,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(SkyRendering.class)
 public abstract class SkyColorMixin {
 
+    /*
+     * 1.21.11 passes a Camera where this line passes the camera position as a
+     * Vec3d. An injected method's descriptor has to match the target exactly,
+     * so the two lines cannot share this signature.
+     */
     @Inject(method = "updateRenderState", at = @At("RETURN"))
     private void localweather$darkenStormSky(ClientWorld world, float tickDelta,
-                                              Camera camera, SkyRenderState state,
+                                              Vec3d cameraPos, SkyRenderState state,
                                               CallbackInfo ci) {
         float rain = ClientWeatherHandler.getRainDarkening();
         float thunder = ClientWeatherHandler.getThunderDarkening();

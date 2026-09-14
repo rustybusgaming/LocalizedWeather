@@ -1,8 +1,5 @@
 package net.fentbusgaming.localweather.sound;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fentbusgaming.localweather.network.ClientWeatherHandler;
 import net.fentbusgaming.localweather.weather.WeatherZone;
 import net.fentbusgaming.localweather.weather.WeatherZoneManager;
@@ -27,7 +24,6 @@ import java.util.Random;
  * <p>Works alongside {@link DirectionalThunderSound} which handles close
  * thunder cracks.</p>
  */
-@Environment(EnvType.CLIENT)
 public class WeatherSoundManager {
 
     private static final int ZONE_SIZE = WeatherZoneManager.CHUNKS_PER_ZONE * 16;
@@ -60,11 +56,8 @@ public class WeatherSoundManager {
 
     private WeatherSoundManager() {}
 
-    public static void register() {
-        ClientTickEvents.END_CLIENT_TICK.register(WeatherSoundManager::onTick);
-    }
-
-    private static void onTick(Minecraft client) {
+    /** Called once per client tick by each platform. */
+    public static void clientTick(Minecraft client) {
         if (client.level == null || client.player == null) return;
         if (client.isPaused()) return;
 
