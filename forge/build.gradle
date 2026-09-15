@@ -3,7 +3,7 @@ plugins {
     id 'net.minecraftforge.gradle' version '[7.0.17,8)'
 }
 
-version = project.mod_version
+version = "${project.mod_version}+${project.minecraft_version}"
 group = project.mod_group_id
 
 base {
@@ -21,7 +21,9 @@ sourceSets {
         java.srcDirs += [
             "${rootDir}/../src/shared/java",
             "${rootDir}/../src/v26/common/java",
-            "${rootDir}/../src/forge/main/java"
+            "${rootDir}/../src/v26/clientcommon/java",
+            "${rootDir}/../src/forge/main/java",
+            "${rootDir}/../src/forge/client/java"
         ]
     }
 }
@@ -33,6 +35,25 @@ sourceSets {
 // class and refuses to load. Emitting resources into the classes directory puts
 // both halves where the locator looks.
 sourceSets.main.output.resourcesDir = layout.buildDirectory.dir('classes/java/main')
+
+// Forge discovers mixin configs from the MixinConfigs jar manifest attribute.
+// The [[mixins]] block in mods.toml that NeoForge uses is ignored here — with
+// no warning — so a config declared only there silently never loads and every
+// mixin in it is quietly inert.
+def mixinConfigs = 'localweather.mixins.json,localweather.client.mixins.json'
+
+jar {
+    // Same classifier scheme as the NeoForge module, so the two loaders' jars
+    // are told apart by name in a release's asset list.
+    archiveClassifier = 'forge'
+
+    manifest {
+        attributes('MixinConfigs': mixinConfigs)
+    }
+    // The dev manifest below lands in the classes directory, which is also jar
+    // input; the jar builds its own manifest from the block above.
+    exclude 'META-INF/MANIFEST.MF'
+}
 
 minecraft {
     runs {
@@ -58,6 +79,16 @@ dependencies {
 }
 
 processResources {
+    // A dev run loads the mod from loose directories rather than the jar, so the
+    // MixinConfigs attribute has to exist in a MANIFEST.MF inside the output
+    // directory too — which is the classes directory, for the same reason the
+    // rest of the resources go there.
+    doLast {
+        def manifest = new File(destinationDir, 'META-INF/MANIFEST.MF')
+        manifest.parentFile.mkdirs()
+        manifest.text = "Manifest-Version: 1.0\nMixinConfigs: ${mixinConfigs}\n"
+    }
+
     inputs.properties([
             mod_id: project.mod_id,
             mod_name: project.mod_name,

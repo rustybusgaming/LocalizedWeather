@@ -2,6 +2,16 @@
 
 All notable changes to Localized Weather will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- Forge is now a published release artifact and runs the whole mod, not just the simulation: zone weather, wind and storm cells sync to clients, and the rain gradients, sky darkening, fog, storm clouds, hail and rain wall all draw. Its jar is `localweather-<mod version>+<minecraft version>-forge.jar`
+- CI builds the NeoForge and Forge modules on every push and pull request; they are separate Gradle builds, so they run as their own matrix rather than riding `-Pmc`
+
+### Changed
+- The Forge jar carries a `-forge` classifier and a `+<minecraft version>` in its name, matching the NeoForge one, so a release's assets are told apart by name
+- Documented that the Quilt jar wants Fabric API rather than Quilted Fabric API, whose newest build is for Minecraft 1.21; re-checked Quilt's hashed mappings, which still stop at 1.21.11, so 26.x remains Quilt-less
+
 ## [1.4.0] - 2026-09-14
 
 The multi-version release. One repository now builds **Minecraft 1.21.9,
