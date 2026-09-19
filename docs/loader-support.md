@@ -140,10 +140,16 @@ Quilt is shipped **for the 1.21.x line only**, as the Fabric jar minus
 
 It is not shipped for 26.x. Quilt resolves mods through an intermediate
 namespace, and it publishes none for that line — `meta.quiltmc.org` serves
-hashed mappings for 1.21.11 and returns 404 for 26.1.2. A 26.x Quilt jar could
+hashed mappings for 1.21.11 and returns 404 for 26.1.2 and 26.2, and
+`org.quiltmc:hashed` on Quilt's Maven ends at 1.21.11. A 26.x Quilt jar could
 only declare a namespace that does not exist for that game, so the build skips
 the Quilt jar when the target is unmapped and `quilt.mod.json` lives in
 `src/v1_21/`.
+
+On the 1.21.x line, satisfy the mod's Fabric API dependency with **Fabric API
+itself**, which Quilt Loader loads, rather than Quilted Fabric API: QFAPI's
+newest build is `11.0.0-alpha.3` for Minecraft 1.21, from August 2024, so there
+is none for 1.21.9, 1.21.10 or 1.21.11.
 
 ## NeoForge
 
@@ -193,18 +199,39 @@ delivery, which never happens server-side.
 
 ## Forge
 
-The module in [`forge/`](../forge) targets **26.1.x** and sits at the same level
-as the NeoForge one: it compiles `src/shared/java` and `src/v26/common/java`
-straight out of the Fabric tree, adds its glue in `src/forge/main/java`, and
-runs the zone simulation, storm cells and lightning server-side. Client sync is
-not ported, so it runs with `WeatherSync.NONE` and is not a release artifact.
+The module in [`forge/`](../forge) targets **26.1.x** and runs the same two
+halves the NeoForge one does: it compiles `src/shared/java`,
+`src/v26/common/java` and `src/v26/clientcommon/java` straight out of the
+Fabric tree, adds its glue in `src/forge/main/java` and `src/forge/client/java`,
+and ships as a release artifact alongside the NeoForge jar.
 
-Two things differ from NeoForge in more than spelling:
+Four things differ from NeoForge in more than spelling:
 
 - **Tick events lost their phase field.** Forge 26.x split `TickEvent` into
   per-phase record events, each carrying its own static `EventBus`, so the glue
-  subscribes to `TickEvent.ServerTickEvent.Post.BUS` rather than annotating a
-  handler and testing `event.phase`. The server is `event.server()`.
+  subscribes to `TickEvent.LevelTickEvent.Post.BUS` rather than annotating a
+  handler and testing `event.phase`. Listeners are added to that bus directly —
+  `MinecraftForge.EVENT_BUS.register(this)` refuses a class holding a single
+  listener outright (`IllegalArgumentException: Only a single listener found in
+  class …`).
+- **There is no level-render event.** Fabric has
+  `LevelRenderEvents.COLLECT_SUBMITS` and NeoForge has
+  `SubmitCustomGeometryEvent`; Forge has no equivalent, so the submit phase is
+  reached by a mixin on `LevelRenderer.submitBlockDestroyAnimation` — a named
+  method, called unconditionally just before the custom-geometry pass, whose
+  parameters are exactly the `PoseStack`, `SubmitNodeCollector` and
+  `LevelRenderState` the renderers take. That is a deliberately different
+  anchor from Fabric API's own, which injects into a synthetic
+  `lambda$addMainPass$0` at a `popPush("renderSolidFeatures")` profiler call and
+  so depends on both a compiler-generated lambda name and a string literal in a
+  class Forge patches.
+- **Mixin configs come from the jar manifest.** Forge reads the `MixinConfigs`
+  manifest attribute; the `[[mixins]]` block NeoForge takes from `mods.toml` is
+  ignored, without a warning, so a config declared only there never loads and
+  its mixins are silently inert. Forge also bundles stock Mixin 0.8.7, whose
+  highest compatibility level is `JAVA_21` — Fabric and NeoForge ship forks that
+  know `JAVA_25`, and stock Mixin fails initialisation on it. Java 25 class
+  files load fine at `JAVA_21`.
 - **Dev runs need the mod's resources beside its classes.** FML's classpath
   locator builds a dev-mode mod file from the one directory holding
   `META-INF/mods.toml`; under Gradle's default layout that is

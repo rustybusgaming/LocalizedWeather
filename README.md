@@ -69,7 +69,7 @@ Storms further away than the fog horizon are not culled. Their geometry is proje
 3. Launch the game — the weather takes it from there
 
 Jars are named `localweather-<mod version>+<Minecraft version>[-loader].jar`.
-A plain name is the Fabric build; `-quilt` and `-neoforge` are the others.
+A plain name is the Fabric build; `-quilt`, `-neoforge` and `-forge` are the others.
 For example, on Minecraft 26.1.2: `localweather-1.4.0+26.1.2.jar` for Fabric,
 `localweather-1.4.0+26.1.2-neoforge.jar` for NeoForge.
 
@@ -92,9 +92,9 @@ named differently between them — see [docs/loader-support.md](docs/loader-supp
 | Loader | Status |
 | ------ | ------ |
 | **Fabric** | ✅ Primary supported loader |
-| **Quilt** | ✅ 1.21.x only — Quilt publishes no intermediate namespace for 26.x, so no Quilt jar is built there |
+| **Quilt** | ✅ 1.21.x only — Quilt publishes no intermediate namespace for 26.x, so no Quilt jar is built there. Pair it with Fabric API, not Quilted Fabric API, which stops at Minecraft 1.21 |
 | **NeoForge** | ✅ [`neoforge/`](neoforge/README.md) on 26.1.x — the simulation, the full client presentation and the server-side mixins, all from the same shared code as Fabric |
-| **Forge** | 🚧 [`forge/`](forge/README.md) on 26.1.x, at the same level as NeoForge — server-side simulation from the same shared code, no client sync, not a release artifact |
+| **Forge** | ✅ [`forge/`](forge/README.md) on 26.1.x — the simulation, the full client presentation and the server-side mixins, all from the same shared code as Fabric |
 
 See [docs/loader-support.md](docs/loader-support.md) for the full breakdown.
 

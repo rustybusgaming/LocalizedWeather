@@ -288,3 +288,103 @@ jobs:
           version-type: release
           loaders: neoforge
           game-versions: ${{ steps.target.outputs.game_versions }}
+
+  release-forge:
+    needs: create-release
+    runs-on: ubuntu-latest
+    name: Release (Forge)
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      - name: Build
+        run: ./gradlew -p forge build
+
+      - name: Read target properties
+        id: target
+        run: |
+          MOD_VERSION=$(grep '^mod_version=' forge/gradle.properties | cut -d= -f2)
+          MC_VERSION=$(grep '^minecraft_version=' forge/gradle.properties | cut -d= -f2)
+          GAME_VERSIONS=$(grep '^game_versions=' versions/26.1.2.properties | cut -d= -f2 | tr ',' '\n')
+
+          {
+            echo "release_version=$MOD_VERSION+$MC_VERSION-forge"
+            echo "game_versions<<EOF"
+            echo "$GAME_VERSIONS"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Find release jar
+        id: jar
+        run: |
+          JAR=$(find forge/build/libs -maxdepth 1 -type f -name "localweather-*-forge.jar" ! -name '*-sources.jar' -print -quit)
+          test -n "$JAR" && test -f "$JAR"
+          echo "file=$JAR" >> "$GITHUB_OUTPUT"
+
+      - name: Upload jar to the GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: ${{ steps.jar.outputs.file }}
+          generate_release_notes: false
+
+      - name: Resolve Modrinth project ID
+        id: modrinth
+        run: |
+          REF="${{ vars.MODRINTH_PROJECT_ID }}"
+          REF="${REF:-localizedweather}"
+          RESOLVED=$(curl -fsSL --retry 3 --retry-delay 2 \
+            "https://api.modrinth.com/v2/project/${REF}" | jq -r '.id // empty')
+          if [ -z "$RESOLVED" ]; then
+            echo "::error::Could not resolve Modrinth project '${REF}'."
+            exit 1
+          fi
+          echo "id=${RESOLVED}" >> "$GITHUB_OUTPUT"
+
+      # No fabric-api or modmenu dependency here: neither is a Forge mod.
+      - name: Publish to Modrinth
+        uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          modrinth-id: ${{ steps.modrinth.outputs.id }}
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          files: ${{ steps.jar.outputs.file }}
+          name: Localized Weather v${{ steps.target.outputs.release_version }}
+          version: ${{ steps.target.outputs.release_version }}
+          version-type: release
+          loaders: forge
+          game-versions: ${{ steps.target.outputs.game_versions }}
+
+      - name: Resolve CurseForge project ID
+        id: cf
+        env:
+          DEFAULT_ID: '1515451'
+        run: |
+          ID="${{ vars.CURSEFORGE_PROJECT_ID }}"
+          if [[ ! "$ID" =~ ^[0-9]+$ ]]; then
+            echo "::warning::CURSEFORGE_PROJECT_ID is '${ID:-<unset>}', which is not a numeric project id; using ${DEFAULT_ID}."
+            ID="$DEFAULT_ID"
+          fi
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to CurseForge
+        uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          curseforge-id: ${{ steps.cf.outputs.id }}
+          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+          files: ${{ steps.jar.outputs.file }}
+          name: Localized Weather v${{ steps.target.outputs.release_version }}
+          version: ${{ steps.target.outputs.release_version }}
+          version-type: release
+          loaders: forge
+          game-versions: ${{ steps.target.outputs.game_versions }}
