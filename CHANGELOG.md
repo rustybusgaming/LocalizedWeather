@@ -12,6 +12,10 @@ All notable changes to Localized Weather will be documented in this file.
 - The Forge jar carries a `-forge` classifier and a `+<minecraft version>` in its name, matching the NeoForge one, so a release's assets are told apart by name
 - Documented that the Quilt jar wants Fabric API rather than Quilted Fabric API, whose newest build is for Minecraft 1.21; re-checked Quilt's hashed mappings, which still stop at 1.21.11, so 26.x remains Quilt-less
 
+### Fixed
+- A distant thunderstorm's rain wall no longer hangs on the horizon under clear sky. Storm cells are synced out to 2048 blocks, while the cloud deck is built from the 5×5 zone grid the client caches and so runs out a little past two zones — past that the wall was the only part of the storm still drawn. Each cell now draws its own anvil once it is beyond the deck's reach, taking the same horizon projection the wall does, so the cloud and the curtain under it stay one object
+- A distant storm no longer stops dead at the edge of its sync range. The rain wall grew *more* opaque with distance and never faded, so a cell that drifted out of range was cut off at full strength; the whole storm now thins out over the approach to that edge
+
 ## [1.4.0] - 2026-09-14
 
 The multi-version release. One repository now builds **Minecraft 1.21.9,
