@@ -47,6 +47,7 @@ ext {
     java_release = targetProps.getProperty('java_release') as int
     source_line = targetProps.getProperty('source_line')
     yarn_mappings = targetProps.getProperty('yarn_mappings')   // 1.21.x only
+    client_variant = targetProps.getProperty('client_variant') // 26.x only
 }
 
 def mapped = yarn_mappings != null
@@ -94,6 +95,16 @@ sourceSets {
         // but not loader-facing, so another loader's module can compile it too.
         // Only the 26.x line has one; the glob is empty elsewhere.
         java.srcDirs = ["src/${source_line}/clientcommon/java", "src/${source_line}/client/java"]
+
+        // Most of the 26.x client is common to the whole line, but Mojang has
+        // changed a couple of render-facing signatures inside it. The handful
+        // of files that follow those live in a variant directory named for the
+        // first Minecraft version whose shape they match, and each covers every
+        // later version until the next one. See docs/loader-support.md.
+        if (client_variant != null) {
+            java.srcDirs += "src/${source_line}/${client_variant}/java"
+        }
+
         resources.srcDirs = ["src/${source_line}/client/resources"]
     }
 }

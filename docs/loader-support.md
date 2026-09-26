@@ -22,6 +22,7 @@ tag/branch. The `1.3.x` line is the last release for 1.21.x.
 | `1.21.11` | `v1_21` | 1.21.11 | 0.141.6+1.21.11 | 21 |
 | `26.1.2` | `v26` | 26.1, 26.1.1, 26.1.2 | 0.155.3+26.1.2 | 25 |
 | `26.2` | `v26` | 26.2 | 0.159.0+26.2 | 25 |
+| `26.3` | `v26` | 26.3 | 0.161.0+26.3 | 25 |
 
 ### Why each 1.21.x point release needs its own line
 
@@ -111,6 +112,43 @@ itself rather than failing with "Cannot find a Java installation ... matching:
 camera position from `LevelRenderContext.levelState().cameraRenderState.pos`,
 which is identical on both lines — and is the position the frame is actually
 drawn from. Prefer that kind of common API over a version-conditional branch.
+
+### Client variants inside the 26.x line
+
+The 26.x line is one source tree, but Mojang keeps changing render-facing
+signatures inside it, and a mixin's target descriptor has to match exactly. So
+the handful of files that follow those changes live in a variant directory
+beside the shared ones, chosen by `client_variant` in the target's properties
+file:
+
+| Directory | Applies to |
+| --------- | ---------- |
+| `src/v26/client26_1/java` | 26.1, 26.1.1, 26.1.2, 26.2 |
+| `src/v26/client26_3/java` | 26.3 |
+
+Each is named for the first Minecraft version whose shape it matches and covers
+every later version until the next one. Everything else in the line —
+the simulation, the payloads, the renderers, the sounds, `ClientWorldMixin` and
+`FogMixin` — stays shared in `src/v26/common` and `src/v26/clientcommon`. The
+NeoForge and Forge modules target 26.1.x, so they compile `client26_1`.
+
+Two things moved in 26.3, and only one of them is a compile error:
+
+- **`SkyRenderState.skyColor` became a `Vector3fc`**, where 26.1 and 26.2 had a
+  packed ARGB `int`. This one the compiler catches.
+- **`CloudRenderer.render` was rewritten against the new render-pass API** and
+  the name is now overloaded — 26.3 has both
+  `render(CloudStatus, RenderPass)` and a private
+  `render(RenderPass, RenderPipeline)`, where 26.1 and 26.2 had a single
+  `render(int, CloudStatus, float, int, Vec3, long, float)`. Nothing about this
+  fails to compile: a mixin names its target in a string. Both copies therefore
+  spell out the descriptor rather than matching on the bare name, which on 26.3
+  would quietly inject into both overloads.
+
+The second is the reason to diff every mixin target against the new game jar
+when adding a version, rather than trusting a green build. `javap` on the
+Minecraft jar for each supported version, compared side by side, finds the
+signature changes the compiler cannot see.
 
 ### Vertex formats in custom world geometry
 
