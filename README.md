@@ -84,6 +84,7 @@ For example, on Minecraft 26.1.2: `localweather-1.4.0+26.1.2.jar` for Fabric,
 | 1.21.11 | `-Pmc=1.21.11` | 0.141.6+1.21.11 | 21 |
 | 26.1, 26.1.1, 26.1.2 | `-Pmc=26.1.2` (default) | 0.155.3+26.1.2 | 25 |
 | 26.2 | `-Pmc=26.2` | 0.159.0+26.2 | 25 |
+| 26.3 | `-Pmc=26.3` | 0.161.0+26.3 | 25 |
 
 One repository builds every target; each is a file in [`versions/`](versions).
 The 1.21.x and 26.x lines keep separate source directories because Minecraft is
