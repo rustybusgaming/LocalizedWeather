@@ -57,7 +57,7 @@ public final class NeoForgeLocalWeatherClient {
         HailParticleRenderer.render(poseStack, bufferSource, cam);
         RainCurtainRenderer.render(poseStack, bufferSource, cam, tickDelta);
 
-        bufferSource.endBatch(RenderType.debugFilledBox());
+        bufferSource.endBatch(RenderType.debugQuads());
     }
 
     @SubscribeEvent

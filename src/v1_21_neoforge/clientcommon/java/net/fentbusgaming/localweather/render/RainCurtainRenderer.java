@@ -59,7 +59,7 @@ public class RainCurtainRenderer {
     private static final float DISTANCE_BOOST_PER_BLOCK = 1.0f / 6000.0f;
     private static final float MAX_DISTANCE_BOOST = 0.35f;
 
-    private static final RenderType CURTAIN_RENDER_LAYER = RenderType.debugFilledBox();
+    private static final RenderType CURTAIN_RENDER_LAYER = RenderType.debugQuads();
 
     public static void render(PoseStack poseStack, MultiBufferSource bufferSource, Vec3 cam, float tickDelta) {
         if (!ClientStormCellHandler.hasCells()) return;

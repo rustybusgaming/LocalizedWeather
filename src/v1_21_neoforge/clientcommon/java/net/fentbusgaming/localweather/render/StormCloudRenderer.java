@@ -48,7 +48,7 @@ public class StormCloudRenderer {
     private static final float[] CLOUD_LAYER_ALPHA_SCALE = {1f, 0.72f, 0.5f};
     private static final float[] CLOUD_LAYER_WIND_SCALE = {1.0f, 1.15f, 0.85f};
 
-    private static final RenderType CLOUD_RENDER_LAYER = RenderType.debugFilledBox();
+    private static final RenderType CLOUD_RENDER_LAYER = RenderType.debugQuads();
 
     public static void render(PoseStack poseStack, MultiBufferSource bufferSource, Vec3 cam, float tickDelta) {
         Minecraft client = Minecraft.getInstance();

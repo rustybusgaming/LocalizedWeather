@@ -38,7 +38,7 @@ public class HailParticleRenderer {
         if (!anyHail) return;
 
         long worldTime = client.level.getGameTime();
-        VertexConsumer buffer = bufferSource.getBuffer(RenderType.debugFilledBox());
+        VertexConsumer buffer = bufferSource.getBuffer(RenderType.debugQuads());
         Matrix4f mat = poseStack.last().pose();
 
         for (ClientWeatherHandler.ZoneState zone : zones.values()) {
