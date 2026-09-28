@@ -3,9 +3,17 @@ plugins {
     id 'net.neoforged.moddev' version '2.0.143'
 }
 
+def target = providers.gradleProperty('mc').getOrElse(project.findProperty('default_target') ?: '26.1.2')
+def is121 = target.startsWith('1.21')
+
+def mcVersion = is121 ? project.minecraft_version_121 : project.minecraft_version
+def nfVersion = is121 ? project.neoforge_version_121 : project.neoforge_version
+def mcRange = is121 ? project.minecraft_version_range_121 : project.minecraft_version_range
+def javaVer = is121 ? 21 : 25
+
 // Match the Fabric jars' naming so the two are told apart on a release page:
 // localweather-<mod version>+<minecraft version>-neoforge.jar
-version = "${project.mod_version}+${project.minecraft_version}"
+version = "${project.mod_version}+${mcVersion}"
 group = project.mod_group_id
 
 base {
@@ -17,26 +25,41 @@ jar {
 }
 
 java {
-    toolchain.languageVersion = JavaLanguageVersion.of(25)
+    toolchain.languageVersion = JavaLanguageVersion.of(javaVer)
 }
 
-// The loader-agnostic half of the mod is compiled straight from the Fabric
-// tree rather than copied. Those classes touch no Minecraft or loader API, so
-// both platforms can share them verbatim.
 sourceSets {
     main {
-        java.srcDirs += [
-            "${rootDir}/../src/shared/java",
-            "${rootDir}/../src/v26/common/java",
-            "${rootDir}/../src/v26/clientcommon/java",
-            "${rootDir}/../src/neoforge/main/java",
-            "${rootDir}/../src/neoforge/client/java"
-        ]
+        if (is121) {
+            java.srcDirs = [
+                "${rootDir}/../src/shared/java",
+                "${rootDir}/../src/v1_21_neoforge/common/java",
+                "${rootDir}/../src/v1_21_neoforge/clientcommon/java",
+                "${rootDir}/../src/v1_21_neoforge/main/java",
+                "${rootDir}/../src/v1_21_neoforge/client/java"
+            ]
+            resources.srcDirs = [
+                "${rootDir}/../src/v1_21_neoforge/main/resources",
+                "${rootDir}/../src/main/resources"
+            ]
+        } else {
+            java.srcDirs = [
+                "${rootDir}/../src/shared/java",
+                "${rootDir}/../src/v26/common/java",
+                "${rootDir}/../src/v26/clientcommon/java",
+                "${rootDir}/../src/neoforge/main/java",
+                "${rootDir}/../src/neoforge/client/java"
+            ]
+            resources.srcDirs = [
+                "src/main/resources",
+                "${rootDir}/../src/main/resources"
+            ]
+        }
     }
 }
 
 neoForge {
-    version = project.neoforge_version
+    version = nfVersion
 
     runs {
         client {
@@ -62,15 +85,18 @@ processResources {
             mod_license: project.mod_license,
             mod_name: project.mod_name,
             mod_version: project.mod_version,
-            minecraft_version_range: project.minecraft_version_range,
-            neoforge_version: project.neoforge_version
+            minecraft_version_range: mcRange,
+            neoforge_version: nfVersion
     ])
 
     filesMatching('META-INF/neoforge.mods.toml') {
         expand(inputs.properties)
     }
+
+    // Exclude fabric-specific files if picked up from src/main/resources
+    exclude 'fabric.mod.json'
 }
 
 tasks.withType(JavaCompile).configureEach {
-    options.release = 25
+    options.release = javaVer
 }
