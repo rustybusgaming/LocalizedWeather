@@ -22,6 +22,9 @@ sourceSets {
             "${rootDir}/../src/shared/java",
             "${rootDir}/../src/v26/common/java",
             "${rootDir}/../src/v26/clientcommon/java",
+            // This module targets 26.1.x, so it takes the 26.1 shape of the
+            // render-facing client mixins. See docs/loader-support.md.
+            "${rootDir}/../src/v26/client26_1/java",
             "${rootDir}/../src/forge/main/java",
             "${rootDir}/../src/forge/client/java"
         ]

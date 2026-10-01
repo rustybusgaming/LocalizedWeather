@@ -30,31 +30,16 @@ java {
 
 sourceSets {
     main {
-        if (is121) {
-            java.srcDirs = [
-                "${rootDir}/../src/shared/java",
-                "${rootDir}/../src/v1_21_neoforge/common/java",
-                "${rootDir}/../src/v1_21_neoforge/clientcommon/java",
-                "${rootDir}/../src/v1_21_neoforge/main/java",
-                "${rootDir}/../src/v1_21_neoforge/client/java"
-            ]
-            resources.srcDirs = [
-                "${rootDir}/../src/v1_21_neoforge/main/resources",
-                "${rootDir}/../src/main/resources"
-            ]
-        } else {
-            java.srcDirs = [
-                "${rootDir}/../src/shared/java",
-                "${rootDir}/../src/v26/common/java",
-                "${rootDir}/../src/v26/clientcommon/java",
-                "${rootDir}/../src/neoforge/main/java",
-                "${rootDir}/../src/neoforge/client/java"
-            ]
-            resources.srcDirs = [
-                "src/main/resources",
-                "${rootDir}/../src/main/resources"
-            ]
-        }
+        java.srcDirs += [
+            "${rootDir}/../src/shared/java",
+            "${rootDir}/../src/v26/common/java",
+            "${rootDir}/../src/v26/clientcommon/java",
+            // This module targets 26.1.x, so it takes the 26.1 shape of the
+            // render-facing client mixins. See docs/loader-support.md.
+            "${rootDir}/../src/v26/client26_1/java",
+            "${rootDir}/../src/neoforge/main/java",
+            "${rootDir}/../src/neoforge/client/java"
+        ]
     }
 }
 

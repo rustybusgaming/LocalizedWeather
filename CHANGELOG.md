@@ -5,10 +5,12 @@ All notable changes to Localized Weather will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- Support for **Minecraft 26.3**, built with `-Pmc=26.3` and published alongside the other targets
 - Forge is now a published release artifact and runs the whole mod, not just the simulation: zone weather, wind and storm cells sync to clients, and the rain gradients, sky darkening, fog, storm clouds, hail and rain wall all draw. Its jar is `localweather-<mod version>+<minecraft version>-forge.jar`
 - CI builds the NeoForge and Forge modules on every push and pull request; they are separate Gradle builds, so they run as their own matrix rather than riding `-Pmc`
 
 ### Changed
+- The 26.x client mixins that follow Mojang's render API now live in a variant directory per API era, selected by `client_variant` in the target's properties file. 26.3 changed `SkyRenderState.skyColor` from a packed ARGB `int` to a `Vector3fc`, and rewrote `CloudRenderer.render` against the new render-pass API, overloading the name — so both copies now spell out the mixin target descriptor instead of matching on the bare name. Everything else in the 26.x line stays shared
 - The Forge jar carries a `-forge` classifier and a `+<minecraft version>` in its name, matching the NeoForge one, so a release's assets are told apart by name
 - Documented that the Quilt jar wants Fabric API rather than Quilted Fabric API, whose newest build is for Minecraft 1.21; re-checked Quilt's hashed mappings, which still stop at 1.21.11, so 26.x remains Quilt-less
 
