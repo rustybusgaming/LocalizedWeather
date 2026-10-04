@@ -57,6 +57,22 @@ public class WeatherZone {
     }
 
     /**
+     * Rebuild a zone exactly as it was saved. Package-private: only
+     * {@link ZoneStore} needs to put a zone back mid-transition or dormant.
+     */
+    static WeatherZone restore(int zoneX, int zoneZ, WeatherType current, WeatherType target,
+                               float progress, int duration, long dormantSince) {
+        WeatherZone zone = new WeatherZone(zoneX, zoneZ, current, duration);
+        zone.targetWeather = target;
+        zone.transitionProgress = Math.max(0.0f, Math.min(1.0f, progress));
+        if (zone.transitionProgress >= 1.0f) {
+            zone.currentWeather = target;
+        }
+        zone.dormantSince = dormantSince;
+        return zone;
+    }
+
+    /**
      * Begin a transition to a new weather type.
      * If we are mid-transition, snap the current to the target first.
      */

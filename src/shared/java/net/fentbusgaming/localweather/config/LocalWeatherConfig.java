@@ -104,6 +104,21 @@ public final class LocalWeatherConfig {
         }
     }
 
+    /**
+     * Read the file again, so a server owner can change durations or turn
+     * lightning off without a restart. Runs alongside vanilla's {@code /reload}.
+     * Zones already mid-weather keep the duration they drew; the new values
+     * apply from each zone's next change.
+     *
+     * @return the new settings, in the same form as {@link #summary()}
+     */
+    public static String reload() {
+        synchronized (LocalWeatherConfig.class) {
+            instance = load();
+        }
+        return summary();
+    }
+
     private static LocalWeatherConfig load() {
         Properties p = new Properties();
         Path path = Paths.get("config", FILE_NAME);
@@ -129,8 +144,8 @@ public final class LocalWeatherConfig {
         if (parent != null) Files.createDirectories(parent);
         Files.write(path, (""
                 + "# Localized Weather — server-side settings.\n"
-                + "# Delete this file to get the defaults back. Values are read once at\n"
-                + "# startup, so a change needs a restart.\n"
+                + "# Delete this file to get the defaults back. Run /reload, or restart,\n"
+                + "# after changing it.\n"
                 + "\n"
                 + "# How long a zone stays dry, and how long it stays wet, in minutes.\n"
                 + "# A zone picks a new span at random inside these bounds every time its\n"

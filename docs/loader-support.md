@@ -191,8 +191,9 @@ in December 2024.
 ## Configuration
 
 Server-side settings live in `config/localweather.properties`, written with
-the defaults on first start. The file is read once at startup, so changes need
-a restart.
+the defaults on first start. `/reload` re-reads it on every loader — the hook
+is on vanilla's `MinecraftServer.reloadResources`, not a loader event — so a
+change needs no restart.
 
 | Setting | Default | What it does |
 | ------- | ------- | ------------ |
@@ -355,3 +356,13 @@ Four things differ from NeoForge in more than spelling:
   locator looks. The packaged jar is unaffected.
 
 See [`forge/README.md`](../forge/README.md).
+
+## Saved weather
+
+Zones and the wind are saved to `localweather_zones.dat` in the world folder,
+beside `level.dat`. The save is a mixin on vanilla's `MinecraftServer`
+world-save method (`saveAllChunks` in Mojang's names, `save` in Yarn's), which
+is what autosave, `/save-all` and shutdown all call, so every loader saves the
+same way without a server-stopping event of its own. The format is plain text,
+versioned on its first line; delete the file and the world simply starts with
+fresh weather.

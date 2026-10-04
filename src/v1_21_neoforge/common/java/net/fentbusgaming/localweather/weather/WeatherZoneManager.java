@@ -1,5 +1,6 @@
 package net.fentbusgaming.localweather.weather;
 
+import net.minecraft.world.level.storage.LevelResource;
 import net.fentbusgaming.localweather.config.LocalWeatherConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
@@ -15,6 +16,8 @@ import net.minecraft.world.phys.Vec3;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.ref.WeakReference;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -62,6 +65,17 @@ public class WeatherZoneManager {
     /** Last zone sent to each player, used to avoid re-sending an unchanged view. */
     private static final Map<UUID, PlayerZonePosition> PLAYER_ZONE_POSITIONS = new ConcurrentHashMap<>();
 
+    /**
+     * The server the state above belongs to. Weak, so a server that has stopped
+     * is not kept alive by it. All of this state is static, so without the check
+     * in {@link #ensureSession} a second world opened in the same game would
+     * inherit the first one's zones, storm cells and wind.
+     */
+    private static WeakReference<MinecraftServer> sessionServer = new WeakReference<>(null);
+
+    /** Zones read from this world's save that no dimension has asked for yet. */
+    private static Map<String, Map<Long, WeatherZone>> restoredZones = new HashMap<>();
+
     /** Where zone updates are sent. Set by whichever loader is running us. */
     private static WeatherSync sync = WeatherSync.NONE;
 
@@ -79,6 +93,7 @@ public class WeatherZoneManager {
     // -------------------------------------------------------------------------
 
     public static void tick(MinecraftServer server) {
+        ensureSession(server);
         WindState.tick();
 
         for (ServerLevel world : server.getAllLevels()) {
@@ -107,7 +122,7 @@ public class WeatherZoneManager {
 
     private static void tickWorld(ServerLevel world) {
         ResourceKey<Level> key = world.dimension();
-        Map<Long, WeatherZone> zones = WORLD_ZONES.computeIfAbsent(key, k -> new ConcurrentHashMap<>());
+        Map<Long, WeatherZone> zones = zonesFor(key);
         Set<Long> activeZoneKeys = getActiveZoneKeys(world);
 
         // A zone nobody is near goes dormant rather than being thrown away, and
@@ -191,15 +206,17 @@ public class WeatherZoneManager {
     }
 
     public static WeatherZone getOrCreateZone(ServerLevel world, int zoneX, int zoneZ) {
+        ensureSession(world.getServer());
         ResourceKey<Level> key = world.dimension();
-        Map<Long, WeatherZone> zones = WORLD_ZONES.computeIfAbsent(key, k -> new ConcurrentHashMap<>());
+        Map<Long, WeatherZone> zones = zonesFor(key);
         long packed = pack(zoneX, zoneZ);
         return zones.computeIfAbsent(packed, k -> createZone(world, zoneX, zoneZ));
     }
 
     public static WeatherZone getZone(ServerLevel world, int zoneX, int zoneZ) {
+        ensureSession(world.getServer());
         ResourceKey<Level> key = world.dimension();
-        Map<Long, WeatherZone> zones = WORLD_ZONES.get(key);
+        Map<Long, WeatherZone> zones = zonesFor(key);
         if (zones == null) return null;
         WeatherZone zone = zones.get(pack(zoneX, zoneZ));
         // A dormant zone is memory, not weather: nobody is near it, so nothing —
@@ -232,7 +249,7 @@ public class WeatherZoneManager {
 
         int[] upwind = WindState.getUpwindZone(zoneX, zoneZ);
         ResourceKey<Level> key = world.dimension();
-        Map<Long, WeatherZone> zones = WORLD_ZONES.get(key);
+        Map<Long, WeatherZone> zones = zonesFor(key);
         WeatherZone upwindZone = (zones != null) ? zones.get(pack(upwind[0], upwind[1])) : null;
         // A dormant neighbour's weather is frozen at the moment everyone left,
         // so it is not a front to inherit from.
@@ -397,6 +414,89 @@ public class WeatherZoneManager {
         }
     }
 
+    /** Zones held for a dimension, and how many of them are dormant. For {@code /localweather}. */
+    public static int[] zoneCounts(ServerLevel world) {
+        Map<Long, WeatherZone> zones = zonesFor(world.dimension());
+        int idle = 0;
+        for (WeatherZone zone : zones.values()) {
+            if (zone.isDormant()) idle++;
+        }
+        return new int[]{zones.size(), idle};
+    }
+
+    // -------------------------------------------------------------------------
+    // Session & persistence
+    // -------------------------------------------------------------------------
+
+    /**
+     * Make sure the static state belongs to {@code server}, starting a new
+     * session from that world's save if it does not. A new server instance is a
+     * new world: a dedicated server starting, or a different save opened in
+     * singleplayer.
+     */
+    private static void ensureSession(MinecraftServer server) {
+        if (server == null || sessionServer.get() == server) return;
+
+        WORLD_ZONES.clear();
+        DIRTY_ZONES.clear();
+        PLAYER_ZONE_POSITIONS.clear();
+        StormCellManager.clearAll();
+        WindState.reset();
+        syncTimer = 0;
+        windSyncTimer = 0;
+
+        ZoneStore.Snapshot saved = ZoneStore.load(worldDir(server));
+        restoredZones = new HashMap<>(saved.zones);
+        if (saved.hasWind) {
+            WindState.restore(saved.windAngle, saved.windTarget, saved.windTicksUntilShift);
+        }
+        sessionServer = new WeakReference<>(server);
+
+        if (saved.zoneCount() > 0) {
+            LOGGER.info("[LocalWeather] Restored {} zones across {} dimension(s) from {}",
+                    saved.zoneCount(), saved.zones.size(), ZoneStore.FILE_NAME);
+        }
+    }
+
+    /**
+     * A dimension's zones, picking up whatever was saved for it the first time
+     * it is asked for.
+     */
+    private static Map<Long, WeatherZone> zonesFor(ResourceKey<Level> key) {
+        return WORLD_ZONES.computeIfAbsent(key, k -> {
+            Map<Long, WeatherZone> restored = restoredZones.remove(dimensionId(k));
+            return restored != null ? new ConcurrentHashMap<>(restored) : new ConcurrentHashMap<>();
+        });
+    }
+
+    /**
+     * Write every zone to the world folder. Called from inside vanilla's own
+     * world save, so it runs on autosave, {@code /save-all} and shutdown, and
+     * the file is always consistent with the game time saved beside it.
+     */
+    public static void save(MinecraftServer server) {
+        if (server == null || sessionServer.get() != server) return;
+
+        Map<String, Map<Long, WeatherZone>> out = new HashMap<>();
+        for (Map.Entry<ResourceKey<Level>, Map<Long, WeatherZone>> e : WORLD_ZONES.entrySet()) {
+            out.put(dimensionId(e.getKey()), e.getValue());
+        }
+        // A dimension nobody has visited this session still holds what was
+        // loaded for it; leaving it out would erase it on the next save.
+        for (Map.Entry<String, Map<Long, WeatherZone>> e : restoredZones.entrySet()) {
+            out.putIfAbsent(e.getKey(), e.getValue());
+        }
+        ZoneStore.save(worldDir(server), out, server.overworld().getGameTime());
+    }
+
+    private static String dimensionId(ResourceKey<Level> key) {
+        return key.location().toString();
+    }
+
+    private static Path worldDir(MinecraftServer server) {
+        return server.getWorldPath(LevelResource.ROOT);
+    }
+
     // -------------------------------------------------------------------------
     // Utility
     // -------------------------------------------------------------------------
@@ -423,6 +523,10 @@ public class WeatherZoneManager {
     public static void forceWeatherAt(ServerLevel world, int zoneX, int zoneZ, WeatherZone.WeatherType weather, int duration) {
         WeatherZone zone = getOrCreateZone(world, zoneX, zoneZ);
         zone.forceWeather(weather, duration);
+        // Forced from a console or command block with no player near: the zone is
+        // dormant, and the new duration should run from now rather than from
+        // whenever everyone left, or it is spent before anyone arrives.
+        if (zone.isDormant()) zone.markDormant(world.getGameTime());
         long zoneKey = pack(zoneX, zoneZ);
         markDirty(world.dimension(), zoneKey);
 

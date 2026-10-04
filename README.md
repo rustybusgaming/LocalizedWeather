@@ -40,11 +40,14 @@ The result is weather with geography. Storms have a place they *are*, a directio
 | 🔊 | **Directional thunder** | Thunder plays from the bearing of the storm, with proximity-based volume |
 | 🧩 | **Renderer-friendly** | Drives Minecraft's own cloud renderer instead of replacing it, so mods like VulkanMod still work |
 | ⚙️ | **Configurable** | Weather lengths, lightning, storm-cell count, and whether vanilla weather runs alongside — one properties file, same on every loader |
+| 💾 | **Saved with the world** | Zone weather and the wind are saved alongside the world, so a restart picks up the storm where it left off |
 
 ## How it works
 
 Weather happens automatically, with no commands to learn. The durations below
 are the defaults; a server can change them in the [config file](#configuration).
+`/localweather` shows the weather where you stand, how long it has left, which
+way the wind is blowing from and the nearest storm cell. Any player can run it.
 
 | Phase | Duration | Notes |
 | ----- | -------- | ----- |
@@ -58,6 +61,11 @@ A zone that turns thundery spawns a **storm cell** — a travelling core 70–13
 Zones remember their weather. Walk away from a storm and it keeps its place;
 come back later and it is either still raining or has blown over in the time
 you were gone — never quietly re-rolled because nobody was watching.
+
+They are also saved with the world, in `localweather_zones.dat` next to
+`level.dat`, on every autosave, `/save-all` and shutdown. Minecraft's clock
+stops while the server is off, and so does the weather: a storm with five
+minutes left when the server stopped has five minutes left when it comes back.
 
 Storms further away than the fog horizon are not culled. Their geometry is projected onto the horizon at unchanged apparent size, so a thunderstorm several zones out is still visible as a rain wall on the skyline.
 
@@ -108,7 +116,9 @@ See [docs/loader-support.md](docs/loader-support.md) for the full breakdown.
 ## Configuration
 
 `config/localweather.properties` is written with the defaults on first start.
-Settings are read once at startup, so a change needs a restart.
+After editing it, run `/reload` (or restart). Zones already partway through
+their weather keep the length they drew; the new values apply from each zone's
+next change.
 
 ```properties
 clear-minutes-min = 10          # how long a zone stays dry

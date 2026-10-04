@@ -215,4 +215,15 @@ public final class StormCellManager {
     public static void clearWorld(RegistryKey<World> worldKey) {
         WORLD_CELLS.remove(worldKey);
     }
+
+    /**
+     * Forget every world's storm cells. Called when a new server session starts,
+     * so a world opened after another one in the same game does not inherit its
+     * storms. Cells are not saved: they live for minutes, and the thundery zones
+     * that spawn them are restored, so they come back on their own.
+     */
+    public static void clearAll() {
+        WORLD_CELLS.clear();
+        spawnTimer = 0;
+    }
 }

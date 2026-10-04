@@ -70,6 +70,31 @@ public class WindState {
         return windAngle;
     }
 
+    public static double getTargetAngle() {
+        return targetAngle;
+    }
+
+    public static int getTicksUntilShift() {
+        return ticksUntilShift;
+    }
+
+    /** Put the wind back where a saved world left it. */
+    public static void restore(double angle, double target, int untilShift) {
+        windAngle = angle;
+        targetAngle = target;
+        ticksUntilShift = Math.max(1, untilShift);
+        windDirX = Math.cos(angle);
+        windDirZ = Math.sin(angle);
+    }
+
+    /**
+     * Back to how a fresh world starts. The wind is a static, so without this a
+     * second world opened in the same game would inherit the first one's.
+     */
+    public static void reset() {
+        restore(0.0, 0.0, 6000);
+    }
+
     /**
      * Get the upwind zone coordinates from a given zone.
      * Returns [zoneX, zoneZ] of the zone weather is blowing FROM.
