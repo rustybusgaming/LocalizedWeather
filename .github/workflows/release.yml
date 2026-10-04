@@ -26,6 +26,41 @@ jobs:
           MOD_VERSION=$(grep '^mod_version=' gradle.properties | cut -d= -f2)
           echo "mod_version=$MOD_VERSION" >> "$GITHUB_OUTPUT"
 
+      # The v1.4.1 attempt was pushed as a tag on a months-old commit, so this
+      # workflow ran that commit's copy of itself: it built 1.4.0 jars, named
+      # the release after them, skipped the targets and loaders added since,
+      # and then failed five times over on a Modrinth bug that had already been
+      # fixed on main. Nothing in it noticed that the tag and the version
+      # disagreed.
+      #
+      # A tag that does not match the version it releases is always a mistake,
+      # so it stops the run here, before anything is published, and says which
+      # of the two to move. The loader modules carry their own mod_version and
+      # the published version strings come from those files, so they are
+      # checked against the root rather than left to drift.
+      - name: Check the tag matches the mod version
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          ROOT="${{ steps.version.outputs.mod_version }}"
+
+          if [ "$TAG" != "v$ROOT" ]; then
+            echo "::error::Tag ${TAG} does not match mod_version ${ROOT} in gradle.properties." \
+                 "Either bump mod_version to ${TAG#v} and re-tag, or move ${TAG} to a commit whose mod_version is ${TAG#v}." \
+                 "A tag on an older commit also runs that commit's workflow, so the release would miss everything added since."
+            exit 1
+          fi
+
+          for f in neoforge/gradle.properties forge/gradle.properties; do
+            MODULE=$(grep '^mod_version=' "$f" | cut -d= -f2)
+            if [ "$MODULE" != "$ROOT" ]; then
+              echo "::error file=${f}::mod_version is ${MODULE}, but the root gradle.properties says ${ROOT}." \
+                   "The jar this module publishes is named from its own file, so the two have to agree."
+              exit 1
+            fi
+          done
+
+          echo "Releasing v${ROOT} from ${GITHUB_SHA}."
+
       - name: Create the release
         uses: softprops/action-gh-release@v3
         with:
@@ -91,8 +126,22 @@ jobs:
           FABRIC_JAR=$(find build/libs -maxdepth 1 -type f -name "localweather-*+${{ steps.target.outputs.mc_version }}.jar" ! -name '*-sources.jar' ! -name '*-quilt.jar' -print -quit)
           QUILT_JAR=$(find build/libs -maxdepth 1 -type f -name "localweather-*+${{ steps.target.outputs.mc_version }}-quilt.jar" -print -quit)
 
-          test -n "$FABRIC_JAR" && test -f "$FABRIC_JAR"
-          test -n "$QUILT_JAR" && test -f "$QUILT_JAR"
+          # Spelled out rather than `test -n "$JAR" && test -f "$JAR"`: a
+          # step runs under `bash -e`, which does not exit when the failing
+          # command sits on the left of an `&&`, so that line reported a
+          # missing jar to nobody and the publish carried on with an empty
+          # file list.
+          if [ -z "$FABRIC_JAR" ] || [ ! -f "$FABRIC_JAR" ]; then
+            echo "::error::No Fabric jar for ${{ steps.target.outputs.mc_version }} in build/libs."
+            exit 1
+          fi
+
+          # The Quilt jar is genuinely optional: Quilt publishes no intermediate
+          # namespace for 26.x, so the build makes one only for the 1.21.x line.
+          if [ -n "$QUILT_JAR" ] && [ ! -f "$QUILT_JAR" ]; then
+            echo "::error::Quilt jar ${QUILT_JAR} was named but does not exist."
+            exit 1
+          fi
 
           {
             echo "fabric=$FABRIC_JAR"
@@ -230,7 +279,11 @@ jobs:
         id: jar
         run: |
           JAR=$(find neoforge/build/libs -maxdepth 1 -type f -name "localweather-*-neoforge.jar" ! -name '*-sources.jar' -print -quit)
-          test -n "$JAR" && test -f "$JAR"
+          # See the Fabric job: `test -n ... && test -f ...` never fails a step.
+          if [ -z "$JAR" ] || [ ! -f "$JAR" ]; then
+            echo "::error::No jar found in build/libs for this module."
+            exit 1
+          fi
           echo "file=$JAR" >> "$GITHUB_OUTPUT"
 
       - name: Upload jar to the GitHub Release
@@ -330,7 +383,11 @@ jobs:
         id: jar
         run: |
           JAR=$(find forge/build/libs -maxdepth 1 -type f -name "localweather-*-forge.jar" ! -name '*-sources.jar' -print -quit)
-          test -n "$JAR" && test -f "$JAR"
+          # See the Fabric job: `test -n ... && test -f ...` never fails a step.
+          if [ -z "$JAR" ] || [ ! -f "$JAR" ]; then
+            echo "::error::No jar found in build/libs for this module."
+            exit 1
+          fi
           echo "file=$JAR" >> "$GITHUB_OUTPUT"
 
       - name: Upload jar to the GitHub Release

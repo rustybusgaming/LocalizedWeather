@@ -70,8 +70,8 @@ Storms further away than the fog horizon are not culled. Their geometry is proje
 
 Jars are named `localweather-<mod version>+<Minecraft version>[-loader].jar`.
 A plain name is the Fabric build; `-quilt`, `-neoforge` and `-forge` are the others.
-For example, on Minecraft 26.1.2: `localweather-1.4.0+26.1.2.jar` for Fabric,
-`localweather-1.4.0+26.1.2-neoforge.jar` for NeoForge.
+For example, on Minecraft 26.1.2: `localweather-1.4.1+26.1.2.jar` for Fabric,
+`localweather-1.4.1+26.1.2-neoforge.jar` for NeoForge.
 
 **Optional:** [Mod Menu](https://modrinth.com/mod/modmenu) for in-game mod info.
 

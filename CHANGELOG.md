@@ -2,7 +2,7 @@
 
 All notable changes to Localized Weather will be documented in this file.
 
-## [Unreleased]
+## [1.4.1] - 2026-10-04
 
 ### Added
 - Support for **Minecraft 26.3**, built with `-Pmc=26.3` and published alongside the other targets
