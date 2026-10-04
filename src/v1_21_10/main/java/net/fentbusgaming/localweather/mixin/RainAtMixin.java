@@ -1,6 +1,7 @@
 package net.fentbusgaming.localweather.mixin;
 
 import net.fentbusgaming.localweather.weather.WeatherZone;
+import net.fentbusgaming.localweather.weather.StormCellManager;
 import net.fentbusgaming.localweather.weather.WeatherZoneManager;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
@@ -32,8 +33,7 @@ public abstract class RainAtMixin {
     private void localweather$rainFromZone(BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
         if (!((Object) this instanceof ServerWorld world)) return;
 
-        WeatherZone.WeatherType weather = zoneWeatherAt(world, pos);
-        if (weather != WeatherZone.WeatherType.RAIN && weather != WeatherZone.WeatherType.THUNDER) {
+        if (!wetAt(world, pos)) {
             // Vanilla would answer false anyway; let it.
             return;
         }
@@ -52,8 +52,22 @@ public abstract class RainAtMixin {
         cir.setReturnValue(true);
     }
 
-    private static WeatherZone.WeatherType zoneWeatherAt(ServerWorld world, BlockPos pos) {
+    /**
+     * Rain, thunder or hail in the zone, or a storm cell's core overhead. Hail
+     * falls with rain, and a cell carries its own rain across whatever zone it
+     * passes over; the client already draws both as rain, and until now the
+     * server disagreed — fires kept burning under a passing storm core.
+     */
+    private static boolean wetAt(ServerWorld world, BlockPos pos) {
         WeatherZone zone = WeatherZoneManager.getZone(world, (pos.getX() >> 4) >> 4, (pos.getZ() >> 4) >> 4);
-        return zone == null ? WeatherZone.WeatherType.CLEAR : zone.getCurrentWeather();
+        if (zone != null) {
+            WeatherZone.WeatherType weather = zone.getCurrentWeather();
+            if (weather == WeatherZone.WeatherType.RAIN
+                    || weather == WeatherZone.WeatherType.THUNDER
+                    || weather == WeatherZone.WeatherType.HAIL) {
+                return true;
+            }
+        }
+        return StormCellManager.getCellAt(world, pos.getX() + 0.5, pos.getZ() + 0.5) != null;
     }
 }

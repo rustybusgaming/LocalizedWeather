@@ -13,8 +13,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * fight our custom zones.
  *
  * Vanilla weather tick is in ServerWorld#tickWeather() (Yarn mapped).
- * We cancel the body, leaving rain/thunder flags permanently at "not raining"
- * on the server side. Clients receive their individual zone weather via
+ * We cancel the body and hold the rain/thunder flags at "not raining" on the
+ * server side. Clients receive their individual zone weather via
  * our custom S2C packet and the ClientWorldMixin applies it locally.
  */
 @Mixin(ServerWorld.class)
@@ -31,6 +31,23 @@ public abstract class ServerWorldMixin {
         // run its cycle alongside them.
         if (LocalWeatherConfig.suppressVanillaWeather()) {
             ci.cancel();
+            localweather$keepVanillaClear((ServerWorld) (Object) this);
         }
+    }
+
+    /**
+     * Hold vanilla's own weather at clear while the zones run. Cancelling the
+     * cycle also stops vanilla's rain from ever running out, so a world that
+     * was raining when the mod was installed, or one given {@code /weather rain}
+     * or {@code thunder}, stayed raining world-wide for good on the server:
+     * {@code isRainingAt} said yes in every clear zone, and vanilla's thunder
+     * lightning could strike anywhere.
+     */
+    private static void localweather$keepVanillaClear(ServerWorld world) {
+        if (world.getLevelProperties().isRaining() || world.getLevelProperties().isThundering()) {
+            world.setWeather(0, 0, false, false);
+        }
+        if (world.getRainGradient(1.0f) > 0.0f) world.setRainGradient(0.0f);
+        if (world.getThunderGradient(1.0f) > 0.0f) world.setThunderGradient(0.0f);
     }
 }

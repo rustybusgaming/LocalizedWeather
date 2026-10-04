@@ -19,6 +19,23 @@ public abstract class ServerWorldMixin {
     private void localweather$cancelVanillaWeatherTick(CallbackInfo ci) {
         if (LocalWeatherConfig.suppressVanillaWeather()) {
             ci.cancel();
+            localweather$keepVanillaClear((ServerLevel) (Object) this);
         }
+    }
+
+    /**
+     * Hold vanilla's own weather at clear while the zones run. Cancelling the
+     * cycle also stops vanilla's rain from ever running out, so a world that
+     * was raining when the mod was installed, or one given {@code /weather rain}
+     * or {@code thunder}, stayed raining world-wide for good on the server:
+     * {@code isRainingAt} said yes in every clear zone, and vanilla's thunder
+     * lightning could strike anywhere.
+     */
+    private static void localweather$keepVanillaClear(ServerLevel level) {
+        if (level.getLevelData().isRaining() || level.getLevelData().isThundering()) {
+            level.setWeatherParameters(0, 0, false, false);
+        }
+        if (level.getRainLevel(1.0f) > 0.0f) level.setRainLevel(0.0f);
+        if (level.getThunderLevel(1.0f) > 0.0f) level.setThunderLevel(0.0f);
     }
 }

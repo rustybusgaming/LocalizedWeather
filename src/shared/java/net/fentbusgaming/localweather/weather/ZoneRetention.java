@@ -47,6 +47,24 @@ public final class ZoneRetention {
      * @param gameTime the world's current game time, in ticks
      */
     public static void reconcile(Map<Long, WeatherZone> zones, Set<Long> active, long gameTime) {
+        reconcile(zones, active, gameTime, true);
+    }
+
+    /**
+     * As {@link #reconcile(Map, Set, long)}, for a world whose weather may be
+     * frozen by its weather-cycle gamerule.
+     *
+     * While {@code weatherAdvances} is false a dormant zone's clock is held at
+     * the current time, so the hours the rule was off are not spent against its
+     * weather when a player comes back, or when the rule is turned on again.
+     * A zone already dormant when the rule goes off is held as it was left:
+     * frozen weather means the remembered weather too, and counting the time
+     * before the switch exactly would need every zone to carry more state.
+     *
+     * @param weatherAdvances the world's weather-cycle gamerule
+     */
+    public static void reconcile(Map<Long, WeatherZone> zones, Set<Long> active, long gameTime,
+                                 boolean weatherAdvances) {
         int dormant = 0;
 
         for (Map.Entry<Long, WeatherZone> entry : zones.entrySet()) {
@@ -55,11 +73,11 @@ public final class ZoneRetention {
 
             if (near) {
                 if (zone.isDormant()) {
-                    zone.catchUp(gameTime - zone.getDormantSince());
+                    if (weatherAdvances) zone.catchUp(gameTime - zone.getDormantSince());
                     zone.wake();
                 }
             } else {
-                if (!zone.isDormant()) {
+                if (!zone.isDormant() || !weatherAdvances) {
                     zone.markDormant(gameTime);
                 }
                 dormant++;

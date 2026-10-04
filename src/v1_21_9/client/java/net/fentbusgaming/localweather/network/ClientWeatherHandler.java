@@ -121,6 +121,7 @@ public final class ClientWeatherHandler {
         ClientPlayNetworking.registerGlobalReceiver(
                 WeatherPackets.WeatherUpdatePayload.ID,
                 (payload, context) -> {
+                    followWorld(MinecraftClient.getInstance().world);
                     WeatherZone.WeatherType[] values = WeatherZone.WeatherType.values();
                     int currentOrdinal = payload.currentWeatherOrdinal();
                     int targetOrdinal = payload.targetWeatherOrdinal();
@@ -152,19 +153,31 @@ public final class ClientWeatherHandler {
         LocalWeatherMod.LOGGER.info("[LocalWeather] Client weather handler registered.");
     }
 
+    /**
+     * Drop the zone cache when the player is in a different world from the
+     * one it was filled for: a join, a dimension change, a respawn into a new
+     * level. Called from the update handler as well as the tick, because the
+     * packet that creates the new level and the first zone updates for it can
+     * be handled in the same frame, before any tick runs. Clearing only from
+     * the tick then threw those updates away, and an unchanged zone is not
+     * sent again until the player crosses into another zone.
+     */
+    private static void followWorld(ClientWorld world) {
+        if (world == activeWorld) return;
+        activeWorld = world;
+        ZONE_STATES.clear();
+        currentZoneWeather = WeatherZone.WeatherType.CLEAR;
+        targetRainGradient = 0.0f;
+        targetThunderGradient = 0.0f;
+    }
+
     // -------------------------------------------------------------------------
     // Per-tick smooth blending
     // -------------------------------------------------------------------------
 
     private static void onClientTick(MinecraftClient client) {
         ClientWorld world = client.world;
-        if (world != activeWorld) {
-            activeWorld = world;
-            ZONE_STATES.clear();
-            currentZoneWeather = WeatherZone.WeatherType.CLEAR;
-            targetRainGradient = 0.0f;
-            targetThunderGradient = 0.0f;
-        }
+        followWorld(world);
         if (world == null || client.player == null) return;
 
         ZONE_STATES.values().forEach(ZoneState::advanceTransition);

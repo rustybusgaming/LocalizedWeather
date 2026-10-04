@@ -48,6 +48,8 @@ Weather happens automatically, with no commands to learn. The durations below
 are the defaults; a server can change them in the [config file](#configuration).
 `/localweather` shows the weather where you stand, how long it has left, which
 way the wind is blowing from and the nearest storm cell. Any player can run it.
+`/gamerule doWeatherCycle false` (`advance_weather` on 1.21.11 and 26.x) holds
+every zone's weather where it is, as it does vanilla's.
 
 | Phase | Duration | Notes |
 | ----- | -------- | ----- |

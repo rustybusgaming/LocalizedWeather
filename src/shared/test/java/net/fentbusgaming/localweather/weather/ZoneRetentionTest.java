@@ -135,4 +135,34 @@ class ZoneRetentionTest {
         zone.catchUp(-50);
         assertEquals(1_234, zone.getWeatherDuration());
     }
+
+    @Test
+    void frozenWeatherSpendsNoTimeWhileAway() {
+        // doWeatherCycle off: a storm left for 5000 ticks is untouched on return.
+        WeatherZone storm = new WeatherZone(0, 0, WeatherType.THUNDER, 10_000);
+        Map<Long, WeatherZone> zones = zonesWith(1L, storm);
+
+        ZoneRetention.reconcile(zones, Set.of(), 1_000, false);
+        ZoneRetention.reconcile(zones, Set.of(), 3_000, false);
+        ZoneRetention.reconcile(zones, Set.of(1L), 6_000, false);
+
+        assertFalse(storm.isDormant());
+        assertEquals(10_000, storm.getWeatherDuration());
+    }
+
+    @Test
+    void onlyTimeAfterTheRuleIsBackOnCounts() {
+        // Left at 1000, rule turned off at 5000 and kept off until 9000, player
+        // back at 10000 with the rule on. Freezing holds the zone as it was left,
+        // so only the 1000 ticks since the rule came back are spent.
+        WeatherZone storm = new WeatherZone(0, 0, WeatherType.THUNDER, 10_000);
+        Map<Long, WeatherZone> zones = zonesWith(1L, storm);
+
+        ZoneRetention.reconcile(zones, Set.of(), 1_000, true);
+        ZoneRetention.reconcile(zones, Set.of(), 5_000, false);
+        ZoneRetention.reconcile(zones, Set.of(), 9_000, false);
+        ZoneRetention.reconcile(zones, Set.of(1L), 10_000, true);
+
+        assertEquals(9_000, storm.getWeatherDuration());
+    }
 }

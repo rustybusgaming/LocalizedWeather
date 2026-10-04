@@ -4,6 +4,7 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fentbusgaming.localweather.network.ClientWeatherHandler;
 import net.fentbusgaming.localweather.weather.WeatherZone;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.biome.Biome;
 import org.spongepowered.asm.mixin.Mixin;
@@ -32,6 +33,14 @@ public abstract class ClientWorldMixin {
             BlockPos pos,
             int height,
             CallbackInfoReturnable<Biome.Precipitation> cir) {
+
+        // Biome is shared with the integrated server in singleplayer, and this is
+        // the local player's zone. Overriding off the client thread made every
+        // server-side precipitation check in the world answer snow while the
+        // player stood in a snow zone — rain checks failed everywhere else, and
+        // cauldrons in rain filled with powder snow.
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client == null || !client.isOnThread()) return;
 
         WeatherZone.WeatherType zone = ClientWeatherHandler.getCurrentZoneWeather();
 

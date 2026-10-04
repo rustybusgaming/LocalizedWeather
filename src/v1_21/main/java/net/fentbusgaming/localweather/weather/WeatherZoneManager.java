@@ -128,14 +128,18 @@ public class WeatherZoneManager {
         // is caught up on the time it missed when someone comes back — so a
         // storm you walk out of is still there, or has blown over, when you
         // turn around. Only zones in range are ticked below.
-        ZoneRetention.reconcile(zones, activeZoneKeys, world.getTime());
+        // With the weather-cycle gamerule off, vanilla holds its weather where it
+        // is; zones do the same. Transitions already under way still finish, and
+        // /weather still works.
+        boolean advance = weatherAdvances(world);
+        ZoneRetention.reconcile(zones, activeZoneKeys, world.getTime(), advance);
 
         for (long zoneKey : activeZoneKeys) {
             WeatherZone zone = zones.get(zoneKey);
             if (zone == null) continue;
 
             boolean transitionDone = zone.tickTransition();
-            boolean durationExpired = zone.tickDuration();
+            boolean durationExpired = advance && zone.tickDuration();
 
             if (transitionDone || durationExpired) {
                 if (durationExpired) {
@@ -152,15 +156,24 @@ public class WeatherZoneManager {
         }
     }
 
+    /** The world's weather-cycle gamerule ({@code doWeatherCycle}, later {@code advance_weather}). */
+    private static boolean weatherAdvances(ServerWorld world) {
+        return Boolean.TRUE.equals(world.getGameRules().getValue(net.minecraft.world.rule.GameRules.ADVANCE_WEATHER));
+    }
+
     /**
-     * Strike lightning inside thundery zones. Positions are filtered through
-     * hasRain, so a strike only lands where the rain actually reaches.
+     * Strike lightning inside thundery zones and under storm-cell cores.
+     * Positions are filtered through hasRain, so a strike only lands where
+     * the rain actually reaches.
      */
     private static void tickLightning(ServerWorld world) {
         for (ServerPlayerEntity player : world.getPlayers()) {
             ChunkPos chunkPos = player.getChunkPos();
             WeatherZone zone = getZone(world, chunkPos.x >> 4, chunkPos.z >> 4);
-            if (zone == null || zone.getCurrentWeather() != WeatherZone.WeatherType.THUNDER) continue;
+            boolean thunderZone = zone != null && zone.getCurrentWeather() == WeatherZone.WeatherType.THUNDER;
+            // A storm cell is a thunderstorm: its core strikes even where the zone
+            // underneath is not thundery.
+            if (!thunderZone && StormCellManager.getCellAt(world, player.getX(), player.getZ()) == null) continue;
             if (!LocalWeatherConfig.lightningEnabled()) continue;
             if (RANDOM.nextInt(LocalWeatherConfig.lightningRarity()) != 0) continue;
 
