@@ -39,10 +39,17 @@ The result is weather with geography. Storms have a place they *are*, a directio
 | 🌑 | **Directional darkening** | Sky, fog and clouds darken *toward* the approaching storm, not uniformly |
 | 🔊 | **Directional thunder** | Thunder plays from the bearing of the storm, with proximity-based volume |
 | 🧩 | **Renderer-friendly** | Drives Minecraft's own cloud renderer instead of replacing it, so mods like VulkanMod still work |
+| ⚙️ | **Configurable** | Weather lengths, lightning, storm-cell count, and whether vanilla weather runs alongside — one properties file, same on every loader |
+| 💾 | **Saved with the world** | Zone weather and the wind are saved alongside the world, so a restart picks up the storm where it left off |
 
 ## How it works
 
-Weather happens automatically. There is nothing to configure and no commands to learn.
+Weather happens automatically, with no commands to learn. The durations below
+are the defaults; a server can change them in the [config file](#configuration).
+`/localweather` shows the weather where you stand, how long it has left, which
+way the wind is blowing from and the nearest storm cell. Any player can run it.
+`/gamerule doWeatherCycle false` (`advance_weather` on 1.21.11 and 26.x) holds
+every zone's weather where it is, as it does vanilla's.
 
 | Phase | Duration | Notes |
 | ----- | -------- | ----- |
@@ -52,6 +59,15 @@ Weather happens automatically. There is nothing to configure and no commands to 
 | Wind shift | every 2.5 – 10 min | Slowly rotates; fronts follow it |
 
 A zone that turns thundery spawns a **storm cell** — a travelling core 70–130 blocks across that lives for 4–10 minutes, moves at roughly 3–6 blocks per second, and carries its rain wall and rain bands with it. When the core passes over you, the rain arrives with the wall and leaves once it has gone by.
+
+Zones remember their weather. Walk away from a storm and it keeps its place;
+come back later and it is either still raining or has blown over in the time
+you were gone — never quietly re-rolled because nobody was watching.
+
+They are also saved with the world, in `localweather_zones.dat` next to
+`level.dat`, on every autosave, `/save-all` and shutdown. Minecraft's clock
+stops while the server is off, and so does the weather: a storm with five
+minutes left when the server stopped has five minutes left when it comes back.
 
 Storms further away than the fog horizon are not culled. Their geometry is projected onto the horizon at unchanged apparent size, so a thunderstorm several zones out is still visible as a rain wall on the skyline.
 
@@ -70,8 +86,8 @@ Storms further away than the fog horizon are not culled. Their geometry is proje
 
 Jars are named `localweather-<mod version>+<Minecraft version>[-loader].jar`.
 A plain name is the Fabric build; `-quilt`, `-neoforge` and `-forge` are the others.
-For example, on Minecraft 26.1.2: `localweather-1.4.0+26.1.2.jar` for Fabric,
-`localweather-1.4.0+26.1.2-neoforge.jar` for NeoForge.
+For example, on Minecraft 26.1.2: `localweather-1.4.1+26.1.2.jar` for Fabric,
+`localweather-1.4.1+26.1.2-neoforge.jar` for NeoForge.
 
 **Optional:** [Mod Menu](https://modrinth.com/mod/modmenu) for in-game mod info.
 
@@ -94,10 +110,47 @@ named differently between them — see [docs/loader-support.md](docs/loader-supp
 | ------ | ------ |
 | **Fabric** | ✅ Primary supported loader |
 | **Quilt** | ✅ 1.21.x only — Quilt publishes no intermediate namespace for 26.x, so no Quilt jar is built there. Pair it with Fabric API, not Quilted Fabric API, which stops at Minecraft 1.21 |
-| **NeoForge** | ✅ [`neoforge/`](neoforge/README.md) on 26.1.x — the simulation, the full client presentation and the server-side mixins, all from the same shared code as Fabric |
+| **NeoForge** | ✅ [`neoforge/`](neoforge/README.md) on 26.1.x and 1.21.1 — the simulation, the full client presentation and the server-side mixins on both |
 | **Forge** | ✅ [`forge/`](forge/README.md) on 26.1.x — the simulation, the full client presentation and the server-side mixins, all from the same shared code as Fabric |
 
 See [docs/loader-support.md](docs/loader-support.md) for the full breakdown.
+
+## Configuration
+
+`config/localweather.properties` is written with the defaults on first start.
+After editing it, run `/reload` (or restart). Zones already partway through
+their weather keep the length they drew; the new values apply from each zone's
+next change.
+
+```properties
+clear-minutes-min = 10          # how long a zone stays dry
+clear-minutes-max = 150
+rain-minutes-min = 10           # how long it stays wet
+rain-minutes-max = 20
+
+lightning = true                # lightning inside thunder zones
+lightning-rarity = 1200         # one-in-N per tick; larger is rarer
+
+storm-cells = true              # travelling storms, with rain wall and bands
+storm-cells-max = 4
+
+suppress-vanilla-weather = true # off lets vanilla weather run alongside zones
+```
+
+Delete the file to get the defaults back. Zone size and the sync intervals are
+not configurable — the client is built around them, so changing one would
+desync every player on the server.
+
+## Shaders
+
+Zone weather drives the level's `rainLevel`, which is what Iris gives a pack as
+`rainStrength` — so a pack's wet surfaces and puddles follow the zone you are
+standing in with no setup. The sky tint and storm fog will be overridden by the
+pack's own sky and fog. The storm clouds, hail and rain wall are drawn on a
+debug render type and have not been tested under a pack; expect them unlit.
+
+Iris covers 26.1, 26.2 and 26.3 on Fabric and NeoForge. Forge has no option —
+Oculus stopped at Minecraft 1.20.1.
 
 ## For mod developers
 

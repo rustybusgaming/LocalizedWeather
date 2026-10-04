@@ -1,5 +1,6 @@
 package net.fentbusgaming.localweather.weather;
 
+import net.fentbusgaming.localweather.config.LocalWeatherConfig;
 import net.fentbusgaming.localweather.network.WeatherPackets;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.server.MinecraftServer;
@@ -28,7 +29,6 @@ public final class StormCellManager {
     private static final int ZONE_SIZE = WeatherZoneManager.CHUNKS_PER_ZONE * 16;
 
     /** Upper bound on simultaneous cells per world, so a stormy day stays cheap. */
-    private static final int MAX_CELLS_PER_WORLD = 4;
 
     /** How often (in ticks) we look for a thundery zone that has no cell yet. */
     private static final int SPAWN_CHECK_INTERVAL = 100;
@@ -101,7 +101,8 @@ public final class StormCellManager {
      */
     private static void trySpawnCells(ServerWorld world) {
         List<StormCell> cells = cellsOf(world);
-        if (cells.size() >= MAX_CELLS_PER_WORLD) return;
+        if (!LocalWeatherConfig.stormCellsEnabled()) return;
+        if (cells.size() >= LocalWeatherConfig.stormCellsMax()) return;
 
         for (ServerPlayerEntity player : world.getPlayers()) {
             ChunkPos chunkPos = player.getChunkPos();
@@ -123,7 +124,7 @@ public final class StormCellManager {
                     synchronized (cells) {
                         cells.add(cell);
                     }
-                    if (cells.size() >= MAX_CELLS_PER_WORLD) return;
+                    if (cells.size() >= LocalWeatherConfig.stormCellsMax()) return;
                 }
             }
         }
@@ -213,5 +214,16 @@ public final class StormCellManager {
 
     public static void clearWorld(RegistryKey<World> worldKey) {
         WORLD_CELLS.remove(worldKey);
+    }
+
+    /**
+     * Forget every world's storm cells. Called when a new server session starts,
+     * so a world opened after another one in the same game does not inherit its
+     * storms. Cells are not saved: they live for minutes, and the thundery zones
+     * that spawn them are restored, so they come back on their own.
+     */
+    public static void clearAll() {
+        WORLD_CELLS.clear();
+        spawnTimer = 0;
     }
 }

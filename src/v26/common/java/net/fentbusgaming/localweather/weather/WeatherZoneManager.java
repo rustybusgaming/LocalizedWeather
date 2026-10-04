@@ -1,5 +1,7 @@
 package net.fentbusgaming.localweather.weather;
 
+import net.minecraft.world.level.storage.LevelResource;
+import net.fentbusgaming.localweather.config.LocalWeatherConfig;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -17,6 +19,8 @@ import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.Vec3;
 
+import java.lang.ref.WeakReference;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -32,14 +36,9 @@ public class WeatherZoneManager {
     public static final int CHUNKS_PER_ZONE = 16;
     private static final int BIOME_SAMPLES_PER_SIDE = 5;
 
-    /**
-     * Weather duration ranges: min/max ticks (20 ticks = 1 second).
-     * These mirror vanilla's weather duration but are per-zone.
-     */
-    private static final int MIN_CLEAR_TICKS  = 12000;  // ~10 min
-    private static final int MAX_CLEAR_TICKS  = 180000; // ~2.5 hours
-    private static final int MIN_WET_TICKS    = 12000;
-    private static final int MAX_WET_TICKS    = 24000;
+    // How long a zone stays dry or wet is set in config/localweather.properties
+    // and read through LocalWeatherConfig. The defaults mirror vanilla's weather
+    // durations, applied per zone rather than per world.
 
     /**
      * Zones indexed by world key → zone key (packed long of zoneX,zoneZ).
@@ -65,7 +64,6 @@ public class WeatherZoneManager {
      * its global thunder state, which this mod suppresses, so thunderstorms
      * struck nothing at all until now.
      */
-    private static final int LIGHTNING_CHANCE = 1200;
     /** Horizontal spread of strikes around the player, in blocks. */
     private static final int LIGHTNING_SPREAD = 48;
 
@@ -89,6 +87,17 @@ public class WeatherZoneManager {
     /** Last zone sent to each player, used to avoid re-sending an unchanged view. */
     private static final Map<UUID, PlayerZonePosition> PLAYER_ZONE_POSITIONS = new ConcurrentHashMap<>();
 
+    /**
+     * The server the state above belongs to. Weak, so a server that has stopped
+     * is not kept alive by it. All of this state is static, so without the check
+     * in {@link #ensureSession} a second world opened in the same game would
+     * inherit the first one's zones, storm cells and wind.
+     */
+    private static WeakReference<MinecraftServer> sessionServer = new WeakReference<>(null);
+
+    /** Zones read from this world's save that no dimension has asked for yet. */
+    private static Map<String, Map<Long, WeatherZone>> restoredZones = new HashMap<>();
+
     /** Where zone updates are sent. Set by whichever loader is running us. */
     private static WeatherSync sync = WeatherSync.NONE;
 
@@ -104,7 +113,7 @@ public class WeatherZoneManager {
 
     public static void init(WeatherSync weatherSync) {
         sync = weatherSync;
-        LOGGER.info("[LocalWeather] WeatherZoneManager registered.");
+        LOGGER.info("[LocalWeather] WeatherZoneManager registered. Config: {}", LocalWeatherConfig.summary());
     }
 
     // -------------------------------------------------------------------------
@@ -112,6 +121,7 @@ public class WeatherZoneManager {
     // -------------------------------------------------------------------------
 
     public static void tick(MinecraftServer server) {
+        ensureSession(server);
         WindState.tick();
 
         for (ServerLevel world : server.getAllLevels()) {
@@ -140,18 +150,25 @@ public class WeatherZoneManager {
 
     private static void tickWorld(ServerLevel world) {
         ResourceKey<Level> key = world.dimension();
-        Map<Long, WeatherZone> zones = WORLD_ZONES.computeIfAbsent(key, k -> new ConcurrentHashMap<>());
+        Map<Long, WeatherZone> zones = zonesFor(key);
         Set<Long> activeZoneKeys = getActiveZoneKeys(world);
 
-        // Zones outside every player's view do not need simulation or storage.
-        zones.keySet().removeIf(zoneKey -> !activeZoneKeys.contains(zoneKey));
+        // A zone nobody is near goes dormant rather than being thrown away, and
+        // is caught up on the time it missed when someone comes back — so a
+        // storm you walk out of is still there, or has blown over, when you
+        // turn around. Only zones in range are ticked below.
+        // With the weather-cycle gamerule off, vanilla holds its weather where it
+        // is; zones do the same. Transitions already under way still finish, and
+        // /weather still works.
+        boolean advance = weatherAdvances(world);
+        ZoneRetention.reconcile(zones, activeZoneKeys, world.getGameTime(), advance);
 
         for (long zoneKey : activeZoneKeys) {
             WeatherZone zone = zones.get(zoneKey);
             if (zone == null) continue;
 
             boolean transitionDone = zone.tickTransition();
-            boolean durationExpired = zone.tickDuration();
+            boolean durationExpired = advance && zone.tickDuration();
 
             if (transitionDone || durationExpired) {
                 if (durationExpired) {
@@ -168,16 +185,26 @@ public class WeatherZoneManager {
         }
     }
 
+    /** The world's weather-cycle gamerule ({@code doWeatherCycle}, later {@code advance_weather}). */
+    private static boolean weatherAdvances(ServerLevel world) {
+        return Boolean.TRUE.equals(world.getGameRules().get(net.minecraft.world.level.gamerules.GameRules.ADVANCE_WEATHER));
+    }
+
     /**
-     * Strike lightning inside thundery zones. Positions are filtered through
-     * isRainingAt, so a strike only lands where the rain actually reaches.
+     * Strike lightning inside thundery zones and under storm-cell cores.
+     * Positions are filtered through isRainingAt, so a strike only lands where
+     * the rain actually reaches.
      */
     private static void tickLightning(ServerLevel world) {
         for (ServerPlayer player : world.players()) {
             ChunkPos chunkPos = player.chunkPosition();
             WeatherZone zone = getZone(world, chunkPos.x() >> 4, chunkPos.z() >> 4);
-            if (zone == null || zone.getCurrentWeather() != WeatherZone.WeatherType.THUNDER) continue;
-            if (RANDOM.nextInt(LIGHTNING_CHANCE) != 0) continue;
+            boolean thunderZone = zone != null && zone.getCurrentWeather() == WeatherZone.WeatherType.THUNDER;
+            // A storm cell is a thunderstorm: its core strikes even where the zone
+            // underneath is not thundery.
+            if (!thunderZone && StormCellManager.getCellAt(world, player.getX(), player.getZ()) == null) continue;
+            if (!LocalWeatherConfig.lightningEnabled()) continue;
+            if (RANDOM.nextInt(LocalWeatherConfig.lightningRarity()) != 0) continue;
 
             BlockPos around = player.blockPosition().offset(
                     RANDOM.nextInt(LIGHTNING_SPREAD * 2 + 1) - LIGHTNING_SPREAD,
@@ -222,8 +249,9 @@ public class WeatherZoneManager {
     }
 
     public static WeatherZone getOrCreateZone(ServerLevel world, int zoneX, int zoneZ) {
+        ensureSession(world.getServer());
         ResourceKey<Level> key = world.dimension();
-        Map<Long, WeatherZone> zones = WORLD_ZONES.computeIfAbsent(key, k -> new ConcurrentHashMap<>());
+        Map<Long, WeatherZone> zones = zonesFor(key);
         long packed = pack(zoneX, zoneZ);
         return zones.computeIfAbsent(packed, k -> createZone(world, zoneX, zoneZ));
     }
@@ -232,10 +260,15 @@ public class WeatherZoneManager {
      * Get an existing zone without creating it. Returns null if the zone hasn't been loaded.
      */
     public static WeatherZone getZone(ServerLevel world, int zoneX, int zoneZ) {
+        ensureSession(world.getServer());
         ResourceKey<Level> key = world.dimension();
-        Map<Long, WeatherZone> zones = WORLD_ZONES.get(key);
+        Map<Long, WeatherZone> zones = zonesFor(key);
         if (zones == null) return null;
-        return zones.get(pack(zoneX, zoneZ));
+        WeatherZone zone = zones.get(pack(zoneX, zoneZ));
+        // A dormant zone is memory, not weather: nobody is near it, so nothing —
+        // isRainingAt, the API, storm-cell spawning — should read it as live
+        // until a player brings it back into range and it is caught up.
+        return zone == null || zone.isDormant() ? null : zone;
     }
 
     private static WeatherZone createZone(ServerLevel world, int zoneX, int zoneZ) {
@@ -264,8 +297,11 @@ public class WeatherZoneManager {
         // Check the upwind neighbor — weather fronts drift with the wind
         int[] upwind = WindState.getUpwindZone(zoneX, zoneZ);
         ResourceKey<Level> key = world.dimension();
-        Map<Long, WeatherZone> zones = WORLD_ZONES.get(key);
+        Map<Long, WeatherZone> zones = zonesFor(key);
         WeatherZone upwindZone = (zones != null) ? zones.get(pack(upwind[0], upwind[1])) : null;
+        // A dormant neighbour's weather is frozen at the moment everyone left,
+        // so it is not a front to inherit from.
+        if (upwindZone != null && upwindZone.isDormant()) upwindZone = null;
 
         // 45% chance to inherit upwind neighbor's weather (creates drifting fronts)
         if (upwindZone != null && RANDOM.nextFloat() < 0.45f) {
@@ -344,9 +380,20 @@ public class WeatherZoneManager {
 
     private static int randomDuration(WeatherZone.WeatherType type) {
         if (type == WeatherZone.WeatherType.CLEAR) {
-            return MIN_CLEAR_TICKS + RANDOM.nextInt(MAX_CLEAR_TICKS - MIN_CLEAR_TICKS);
+            return spread(LocalWeatherConfig.clearTicksMin(), LocalWeatherConfig.clearTicksMax());
         }
-        return MIN_WET_TICKS + RANDOM.nextInt(MAX_WET_TICKS - MIN_WET_TICKS);
+        return spread(LocalWeatherConfig.wetTicksMin(), LocalWeatherConfig.wetTicksMax());
+    }
+
+    /**
+     * A tick count somewhere in [min, max).
+     *
+     * The bounds come from the config, where a max equal to its min is a
+     * legitimate way to ask for a fixed span — and {@code Random.nextInt}
+     * rejects a bound of zero, so that case returns the minimum instead.
+     */
+    private static int spread(int min, int max) {
+        return max > min ? min + RANDOM.nextInt(max - min) : min;
     }
 
     // -------------------------------------------------------------------------
@@ -437,6 +484,89 @@ public class WeatherZoneManager {
         }
     }
 
+    /** Zones held for a dimension, and how many of them are dormant. For {@code /localweather}. */
+    public static int[] zoneCounts(ServerLevel world) {
+        Map<Long, WeatherZone> zones = zonesFor(world.dimension());
+        int idle = 0;
+        for (WeatherZone zone : zones.values()) {
+            if (zone.isDormant()) idle++;
+        }
+        return new int[]{zones.size(), idle};
+    }
+
+    // -------------------------------------------------------------------------
+    // Session & persistence
+    // -------------------------------------------------------------------------
+
+    /**
+     * Make sure the static state belongs to {@code server}, starting a new
+     * session from that world's save if it does not. A new server instance is a
+     * new world: a dedicated server starting, or a different save opened in
+     * singleplayer.
+     */
+    private static void ensureSession(MinecraftServer server) {
+        if (server == null || sessionServer.get() == server) return;
+
+        WORLD_ZONES.clear();
+        DIRTY_ZONES.clear();
+        PLAYER_ZONE_POSITIONS.clear();
+        StormCellManager.clearAll();
+        WindState.reset();
+        syncTimer = 0;
+        windSyncTimer = 0;
+
+        ZoneStore.Snapshot saved = ZoneStore.load(worldDir(server));
+        restoredZones = new HashMap<>(saved.zones);
+        if (saved.hasWind) {
+            WindState.restore(saved.windAngle, saved.windTarget, saved.windTicksUntilShift);
+        }
+        sessionServer = new WeakReference<>(server);
+
+        if (saved.zoneCount() > 0) {
+            LOGGER.info("[LocalWeather] Restored {} zones across {} dimension(s) from {}",
+                    saved.zoneCount(), saved.zones.size(), ZoneStore.FILE_NAME);
+        }
+    }
+
+    /**
+     * A dimension's zones, picking up whatever was saved for it the first time
+     * it is asked for.
+     */
+    private static Map<Long, WeatherZone> zonesFor(ResourceKey<Level> key) {
+        return WORLD_ZONES.computeIfAbsent(key, k -> {
+            Map<Long, WeatherZone> restored = restoredZones.remove(dimensionId(k));
+            return restored != null ? new ConcurrentHashMap<>(restored) : new ConcurrentHashMap<>();
+        });
+    }
+
+    /**
+     * Write every zone to the world folder. Called from inside vanilla's own
+     * world save, so it runs on autosave, {@code /save-all} and shutdown, and
+     * the file is always consistent with the game time saved beside it.
+     */
+    public static void save(MinecraftServer server) {
+        if (server == null || sessionServer.get() != server) return;
+
+        Map<String, Map<Long, WeatherZone>> out = new HashMap<>();
+        for (Map.Entry<ResourceKey<Level>, Map<Long, WeatherZone>> e : WORLD_ZONES.entrySet()) {
+            out.put(dimensionId(e.getKey()), e.getValue());
+        }
+        // A dimension nobody has visited this session still holds what was
+        // loaded for it; leaving it out would erase it on the next save.
+        for (Map.Entry<String, Map<Long, WeatherZone>> e : restoredZones.entrySet()) {
+            out.putIfAbsent(e.getKey(), e.getValue());
+        }
+        ZoneStore.save(worldDir(server), out, server.overworld().getGameTime());
+    }
+
+    private static String dimensionId(ResourceKey<Level> key) {
+        return key.identifier().toString();
+    }
+
+    private static Path worldDir(MinecraftServer server) {
+        return server.getWorldPath(LevelResource.ROOT);
+    }
+
     // -------------------------------------------------------------------------
     // Utility
     // -------------------------------------------------------------------------
@@ -467,6 +597,10 @@ public class WeatherZoneManager {
     public static void forceWeatherAt(ServerLevel world, int zoneX, int zoneZ, WeatherZone.WeatherType weather, int duration) {
         WeatherZone zone = getOrCreateZone(world, zoneX, zoneZ);
         zone.forceWeather(weather, duration);
+        // Forced from a console or command block with no player near: the zone is
+        // dormant, and the new duration should run from now rather than from
+        // whenever everyone left, or it is spent before anyone arrives.
+        if (zone.isDormant()) zone.markDormant(world.getGameTime());
         long zoneKey = pack(zoneX, zoneZ);
         markDirty(world.dimension(), zoneKey);
 

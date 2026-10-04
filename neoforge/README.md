@@ -25,6 +25,13 @@ directories straight out of the Fabric tree:
 | `src/neoforge/main/java` | this platform's common glue |
 | `src/neoforge/client/java` | this platform's client glue |
 
+That is the 26.1.x target. **The 1.21.1 target shares only
+`src/shared/java`** and takes everything else from `src/v1_21_neoforge/`,
+including its own `neoforge.mods.toml` and mixin configs: 1.21.1 is compiled
+against the obfuscated-era API that NeoForge remaps for it, so no Minecraft
+symbol is spelled the same as on 26.x. `build.gradle` picks one tree per
+target rather than merging them.
+
 Two seams keep the shared code loader-free:
 
 - **`WeatherSync`** — the simulation hands zone, wind and storm-cell updates to

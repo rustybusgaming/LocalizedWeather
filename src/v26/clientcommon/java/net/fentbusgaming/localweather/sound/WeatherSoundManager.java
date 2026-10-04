@@ -7,6 +7,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.level.levelgen.Heightmap;
 
 import java.util.Random;
 
@@ -88,6 +89,13 @@ public class WeatherSoundManager {
         double playerZ = client.player.getZ();
         ClientLevel world = client.level;
 
+        // Rain is heard from the sky. A roof a few blocks up barely matters, but
+        // further down the sound fades, and in a cave or mine it stops — the
+        // ambience used to play at full volume however deep the player was.
+        double belowSurface = world.getHeight(Heightmap.Types.MOTION_BLOCKING, (int) Math.floor(playerX), (int) Math.floor(playerZ)) - playerY;
+        float shelter = (float) Math.min(1.0, Math.max(0.0, 1.0 - (belowSurface - 3.0) / 17.0));
+        if (shelter <= 0.0f) return;
+
         int soundsPlayed = 0;
 
         for (ClientWeatherHandler.ZoneState state : ClientWeatherHandler.getZoneStates().values()) {
@@ -135,6 +143,7 @@ public class WeatherSoundManager {
                 volume = (0.05f + distFactor * (hail ? 0.15f : 0.2f)) * intensity;
             }
 
+            volume *= shelter;
             if (volume < 0.02f) continue;
 
             // Random chance to thin out sounds for a natural feel

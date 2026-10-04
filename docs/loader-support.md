@@ -160,6 +160,60 @@ debug filled-box layer, which is a POSITION_COLOR / QUADS snippet with
 translucent blending and culling left on: it matches this geometry exactly,
 without inventing texture, lightmap or normal data.
 
+## Shaders
+
+The mod has no shader integration, and these are the parts that matter if you
+run one.
+
+**What follows your zone weather anyway.** The simulation drives the level's
+own `rainLevel` and `thunderLevel`, which is what Iris hands a pack as
+`rainStrength` and `wetness`. So a pack's wet surfaces, puddles and rain
+response track the zone you are standing in, with no work on either side —
+walk into a clear zone and it dries up. Precipitation type per zone goes
+through `Biome.getPrecipitationAt`, also the vanilla path, so rain versus snow
+per zone is what the pack draws.
+
+**What a pack will override.** The sky tint and the storm fog are applied by
+mixins on vanilla's `SkyRenderState.skyColor` and `FogData`. Packs compute
+their own sky and fog, so expect those two effects to be replaced by whatever
+the pack does.
+
+**What is untested.** The storm cloud deck, the hail and the rain wall are
+submitted on the debug filled-box render type, for the vertex-format reason in
+the section above. That is not a layer a pack has a program for, so they will
+most likely draw unlit and unfogged, and may be missing from shadow and
+reflection passes. Nobody has yet sat down with a pack and checked.
+
+Iris ships for 26.1, 26.2 and 26.3 on Fabric and NeoForge. **Forge has no
+option at all** — Oculus, the Forge port of Iris, stopped at Minecraft 1.20.1
+in December 2024.
+
+## Configuration
+
+Server-side settings live in `config/localweather.properties`, written with
+the defaults on first start. `/reload` re-reads it on every loader — the hook
+is on vanilla's `MinecraftServer.reloadResources`, not a loader event — so a
+change needs no restart.
+
+| Setting | Default | What it does |
+| ------- | ------- | ------------ |
+| `clear-minutes-min` / `-max` | 10 / 150 | how long a zone stays dry before turning over |
+| `rain-minutes-min` / `-max` | 10 / 20 | how long it stays wet |
+| `lightning` | `true` | lightning inside thunder zones |
+| `lightning-rarity` | 1200 | one-in-N per eligible tick; larger is rarer |
+| `storm-cells` | `true` | travelling single-cell storms, with their rain wall and bands |
+| `storm-cells-max` | 4 | how many can exist in a world at once |
+| `suppress-vanilla-weather` | `true` | off lets vanilla run its own cycle alongside the zones |
+
+`LocalWeatherConfig` lives in `src/shared/java` and touches no Minecraft or
+loader API, so one file serves every loader and every version with no
+per-loader config plumbing, and the path resolves against the working
+directory — which is the instance or server directory on all three loaders.
+
+Zone size, the client's zone radius and the sync intervals are deliberately
+not configurable. The client caches and the renderers are built around them, so
+a server that changed one would desync every client connected to it.
+
 ## Fabric
 
 The primary supported loader. The jar uses Fabric Loader entrypoints, Fabric API
@@ -191,8 +245,28 @@ is none for 1.21.9, 1.21.10 or 1.21.11.
 
 ## NeoForge
 
-The module in [`neoforge/`](../neoforge) targets **26.1.x** and runs both halves
-of the mod: the simulation server-side and the full client presentation.
+The module in [`neoforge/`](../neoforge) builds **two targets**, and runs both
+halves of the mod on each: the simulation server-side and the full client
+presentation.
+
+| Target | Build with | Minecraft | Java | Source tree |
+| ------ | ---------- | --------- | ---- | ----------- |
+| `26.1.2` (default) | `./gradlew -p neoforge build` | 26.1, 26.1.1, 26.1.2 | 25 | `src/v26/*` + `src/neoforge/*` |
+| `1.21.1` | `./gradlew -p neoforge build -Pmc=1.21.1` | 1.21.1 | 21 | `src/v1_21_neoforge/*` |
+
+The two share nothing Minecraft-facing. 26.x is compiled against Mojang's own
+names and 1.21.1 against the obfuscated-era API that NeoForge remaps for it, so
+every Minecraft symbol is spelled differently between them — the same reason the
+Fabric build keeps separate lines. `neoforge/build.gradle` therefore picks one
+tree per target rather than merging them, and that includes the resources: each
+carries its own `neoforge.mods.toml` and mixin configs under the same names, and
+1.21.1's sit at mixin compatibility `JAVA_21` with no `FogMixin`, which 26.x
+needs and 1.21.1 has no target for.
+
+Only `src/shared/java` is common to both — `WeatherZone`, `StormCell` and
+`WindState` touch no Minecraft API at all.
+
+The rest of this section describes the 26.1.x target.
 
 Because 26.x is compiled against Mojang's names on every loader, almost none of
 it is duplicated. The module compiles `src/shared/java`, `src/v26/common/java`
@@ -222,7 +296,10 @@ platform just declares the same config.
 
 NeoForge ships as a release artifact alongside the Fabric jars, built by its own
 job in the release workflow — it is a separate Gradle build with its own jar and
-no Fabric API dependency, so it cannot ride the `-Pmc` matrix.
+no Fabric API dependency, so it cannot ride the root `-Pmc` matrix. Both of its
+targets are published, and both are built on every push and pull request: a
+module built only on its default target is a module whose other targets nothing
+compiles, which is how the 1.21.1 target first landed broken.
 
 The three server-side mixins are shared too, so localized weather is physically
 real on NeoForge rather than only drawn: vanilla's global weather is
@@ -279,3 +356,13 @@ Four things differ from NeoForge in more than spelling:
   locator looks. The packaged jar is unaffected.
 
 See [`forge/README.md`](../forge/README.md).
+
+## Saved weather
+
+Zones and the wind are saved to `localweather_zones.dat` in the world folder,
+beside `level.dat`. The save is a mixin on vanilla's `MinecraftServer`
+world-save method (`saveAllChunks` in Mojang's names, `save` in Yarn's), which
+is what autosave, `/save-all` and shutdown all call, so every loader saves the
+same way without a server-stopping event of its own. The format is plain text,
+versioned on its first line; delete the file and the world simply starts with
+fresh weather.

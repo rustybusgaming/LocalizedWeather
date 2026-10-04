@@ -107,6 +107,13 @@ sourceSets {
 
         resources.srcDirs = ["src/${source_line}/client/resources"]
     }
+    test {
+        // src/shared touches no Minecraft API, so its tests are plain JUnit:
+        // they run on every target without starting the game, and CI runs
+        // them on each one as part of `build`.
+        java.srcDirs = ["src/shared/test/java"]
+        resources.srcDirs = []
+    }
 }
 
 dependencies {
@@ -121,6 +128,18 @@ dependencies {
         // 26.x needs no mappings, so nothing is remapped either.
         implementation "net.fabricmc:fabric-loader:${project.loader_version}"
         implementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+    }
+
+    testImplementation platform("org.junit:junit-bom:5.11.4")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+    testLogging {
+        events 'failed'
+        exceptionFormat 'full'
     }
 }
 

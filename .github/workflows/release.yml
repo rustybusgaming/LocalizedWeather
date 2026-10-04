@@ -24,7 +24,50 @@ jobs:
         id: version
         run: |
           MOD_VERSION=$(grep '^mod_version=' gradle.properties | cut -d= -f2)
+          # The channel follows the version string: 1.4.1-beta.1 goes out as a
+          # beta, 1.5.0-alpha.2 as an alpha, and a plain 1.4.1 as a release.
+          case "$MOD_VERSION" in
+            *-alpha*) VERSION_TYPE=alpha ;;
+            *-beta*|*-rc*|*-pre*) VERSION_TYPE=beta ;;
+            *) VERSION_TYPE=release ;;
+          esac
           echo "mod_version=$MOD_VERSION" >> "$GITHUB_OUTPUT"
+          echo "version_type=$VERSION_TYPE" >> "$GITHUB_OUTPUT"
+
+      # The v1.4.1 attempt was pushed as a tag on a months-old commit, so this
+      # workflow ran that commit's copy of itself: it built 1.4.0 jars, named
+      # the release after them, skipped the targets and loaders added since,
+      # and then failed five times over on a Modrinth bug that had already been
+      # fixed on main. Nothing in it noticed that the tag and the version
+      # disagreed.
+      #
+      # A tag that does not match the version it releases is always a mistake,
+      # so it stops the run here, before anything is published, and says which
+      # of the two to move. The loader modules carry their own mod_version and
+      # the published version strings come from those files, so they are
+      # checked against the root rather than left to drift.
+      - name: Check the tag matches the mod version
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          ROOT="${{ steps.version.outputs.mod_version }}"
+
+          if [ "$TAG" != "v$ROOT" ]; then
+            echo "::error::Tag ${TAG} does not match mod_version ${ROOT} in gradle.properties." \
+                 "Either bump mod_version to ${TAG#v} and re-tag, or move ${TAG} to a commit whose mod_version is ${TAG#v}." \
+                 "A tag on an older commit also runs that commit's workflow, so the release would miss everything added since."
+            exit 1
+          fi
+
+          for f in neoforge/gradle.properties forge/gradle.properties; do
+            MODULE=$(grep '^mod_version=' "$f" | cut -d= -f2)
+            if [ "$MODULE" != "$ROOT" ]; then
+              echo "::error file=${f}::mod_version is ${MODULE}, but the root gradle.properties says ${ROOT}." \
+                   "The jar this module publishes is named from its own file, so the two have to agree."
+              exit 1
+            fi
+          done
+
+          echo "Releasing v${ROOT} from ${GITHUB_SHA}."
 
       - name: Create the release
         uses: softprops/action-gh-release@v3
@@ -32,7 +75,7 @@ jobs:
           name: Localized Weather v${{ steps.version.outputs.mod_version }}
           generate_release_notes: true
           draft: false
-          prerelease: false
+          prerelease: ${{ steps.version.outputs.version_type != 'release' }}
 
   release:
     needs: create-release
@@ -73,6 +116,13 @@ jobs:
         id: target
         run: |
           MOD_VERSION=$(grep '^mod_version=' gradle.properties | cut -d= -f2)
+          # The channel follows the version string: 1.4.1-beta.1 goes out as a
+          # beta, 1.5.0-alpha.2 as an alpha, and a plain 1.4.1 as a release.
+          case "$MOD_VERSION" in
+            *-alpha*) VERSION_TYPE=alpha ;;
+            *-beta*|*-rc*|*-pre*) VERSION_TYPE=beta ;;
+            *) VERSION_TYPE=release ;;
+          esac
           MC_VERSION=$(grep '^minecraft_version=' versions/${{ matrix.target }}.properties | cut -d= -f2)
           GAME_VERSIONS=$(grep '^game_versions=' versions/${{ matrix.target }}.properties | cut -d= -f2 | tr ',' '\n')
 
@@ -80,6 +130,7 @@ jobs:
             echo "mod_version=$MOD_VERSION"
             echo "mc_version=$MC_VERSION"
             echo "release_version=$MOD_VERSION+$MC_VERSION"
+            echo "version_type=$VERSION_TYPE"
             echo "game_versions<<EOF"
             echo "$GAME_VERSIONS"
             echo "EOF"
@@ -91,8 +142,22 @@ jobs:
           FABRIC_JAR=$(find build/libs -maxdepth 1 -type f -name "localweather-*+${{ steps.target.outputs.mc_version }}.jar" ! -name '*-sources.jar' ! -name '*-quilt.jar' -print -quit)
           QUILT_JAR=$(find build/libs -maxdepth 1 -type f -name "localweather-*+${{ steps.target.outputs.mc_version }}-quilt.jar" -print -quit)
 
-          test -n "$FABRIC_JAR" && test -f "$FABRIC_JAR"
-          test -n "$QUILT_JAR" && test -f "$QUILT_JAR"
+          # Spelled out rather than `test -n "$JAR" && test -f "$JAR"`: a
+          # step runs under `bash -e`, which does not exit when the failing
+          # command sits on the left of an `&&`, so that line reported a
+          # missing jar to nobody and the publish carried on with an empty
+          # file list.
+          if [ -z "$FABRIC_JAR" ] || [ ! -f "$FABRIC_JAR" ]; then
+            echo "::error::No Fabric jar for ${{ steps.target.outputs.mc_version }} in build/libs."
+            exit 1
+          fi
+
+          # The Quilt jar is genuinely optional: Quilt publishes no intermediate
+          # namespace for 26.x, so the build makes one only for the 1.21.x line.
+          if [ -n "$QUILT_JAR" ] && [ ! -f "$QUILT_JAR" ]; then
+            echo "::error::Quilt jar ${QUILT_JAR} was named but does not exist."
+            exit 1
+          fi
 
           {
             echo "fabric=$FABRIC_JAR"
@@ -143,7 +208,7 @@ jobs:
           files: ${{ steps.jars.outputs.fabric }}
           name: Localized Weather v${{ steps.target.outputs.release_version }}
           version: ${{ steps.target.outputs.release_version }}
-          version-type: release
+          version-type: ${{ steps.target.outputs.version_type }}
           loaders: fabric
           game-versions: ${{ steps.target.outputs.game_versions }}
           modrinth-dependencies: |
@@ -178,7 +243,7 @@ jobs:
           files: ${{ steps.jars.outputs.fabric }}
           name: Localized Weather v${{ steps.target.outputs.release_version }}
           version: ${{ steps.target.outputs.release_version }}
-          version-type: release
+          version-type: ${{ steps.target.outputs.version_type }}
           loaders: fabric
           game-versions: ${{ steps.target.outputs.game_versions }}
           dependencies: |
@@ -192,15 +257,37 @@ jobs:
   release-neoforge:
     needs: create-release
     runs-on: ubuntu-latest
-    name: Release (NeoForge)
+    strategy:
+      # One target at a time, so a failure on one Minecraft line does not
+      # cancel the other, matching the Fabric matrix above.
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        include:
+          # version_property names which key in neoforge/gradle.properties
+          # holds this target's Minecraft version, and game_versions is what
+          # the jar is published for. 1.21.1 has no file in versions/ — that
+          # directory is the Fabric line's, which does not go back that far —
+          # so its single game version is named here.
+          - target: '26.1.2'
+            version_property: 'minecraft_version'
+            game_versions_from: 'versions/26.1.2.properties'
+          - target: '1.21.1'
+            version_property: 'minecraft_version_121'
+            game_versions: '1.21.1'
+    name: Release (NeoForge ${{ matrix.target }})
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2
 
-      - name: Set up JDK
+      - name: Set up JDKs
         uses: actions/setup-java@v5
         with:
-          java-version: '25'
+          # 26.x needs Java 25 and 1.21.1 needs 21; the last listed version is
+          # the one Gradle runs on and the toolchain resolves the other.
+          java-version: |
+            21
+            25
           distribution: 'temurin'
 
       - name: Setup Gradle
@@ -210,17 +297,35 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build
-        run: ./gradlew -p neoforge build
+        run: ./gradlew -p neoforge build -Pmc=${{ matrix.target }}
 
       - name: Read target properties
         id: target
         run: |
           MOD_VERSION=$(grep '^mod_version=' neoforge/gradle.properties | cut -d= -f2)
-          MC_VERSION=$(grep '^minecraft_version=' neoforge/gradle.properties | cut -d= -f2)
-          GAME_VERSIONS=$(grep '^game_versions=' versions/26.1.2.properties | cut -d= -f2 | tr ',' '\n')
+          # The channel follows the version string: 1.4.1-beta.1 goes out as a
+          # beta, 1.5.0-alpha.2 as an alpha, and a plain 1.4.1 as a release.
+          case "$MOD_VERSION" in
+            *-alpha*) VERSION_TYPE=alpha ;;
+            *-beta*|*-rc*|*-pre*) VERSION_TYPE=beta ;;
+            *) VERSION_TYPE=release ;;
+          esac
+          MC_VERSION=$(grep "^${{ matrix.version_property }}=" neoforge/gradle.properties | cut -d= -f2)
+
+          if [ -n "${{ matrix.game_versions_from }}" ]; then
+            GAME_VERSIONS=$(grep '^game_versions=' "${{ matrix.game_versions_from }}" | cut -d= -f2 | tr ',' '\n')
+          else
+            GAME_VERSIONS="${{ matrix.game_versions }}"
+          fi
+
+          if [ -z "$MC_VERSION" ] || [ -z "$GAME_VERSIONS" ]; then
+            echo "::error::Could not resolve the Minecraft version or game versions for target ${{ matrix.target }}."
+            exit 1
+          fi
 
           {
             echo "release_version=$MOD_VERSION+$MC_VERSION-neoforge"
+            echo "version_type=$VERSION_TYPE"
             echo "game_versions<<EOF"
             echo "$GAME_VERSIONS"
             echo "EOF"
@@ -229,8 +334,16 @@ jobs:
       - name: Find release jar
         id: jar
         run: |
-          JAR=$(find neoforge/build/libs -maxdepth 1 -type f -name "localweather-*-neoforge.jar" ! -name '*-sources.jar' -print -quit)
-          test -n "$JAR" && test -f "$JAR"
+          # Pinned to this target's Minecraft version rather than the first
+          # -neoforge.jar in the directory: the module builds one jar per
+          # target and both end up under the same name pattern.
+          MC_VERSION=$(grep "^${{ matrix.version_property }}=" neoforge/gradle.properties | cut -d= -f2)
+          JAR=$(find neoforge/build/libs -maxdepth 1 -type f -name "localweather-*+${MC_VERSION}-neoforge.jar" ! -name '*-sources.jar' -print -quit)
+          # See the Fabric job: `test -n ... && test -f ...` never fails a step.
+          if [ -z "$JAR" ] || [ ! -f "$JAR" ]; then
+            echo "::error::No jar found in build/libs for this module."
+            exit 1
+          fi
           echo "file=$JAR" >> "$GITHUB_OUTPUT"
 
       - name: Upload jar to the GitHub Release
@@ -261,7 +374,7 @@ jobs:
           files: ${{ steps.jar.outputs.file }}
           name: Localized Weather v${{ steps.target.outputs.release_version }}
           version: ${{ steps.target.outputs.release_version }}
-          version-type: release
+          version-type: ${{ steps.target.outputs.version_type }}
           loaders: neoforge
           game-versions: ${{ steps.target.outputs.game_versions }}
 
@@ -285,7 +398,7 @@ jobs:
           files: ${{ steps.jar.outputs.file }}
           name: Localized Weather v${{ steps.target.outputs.release_version }}
           version: ${{ steps.target.outputs.release_version }}
-          version-type: release
+          version-type: ${{ steps.target.outputs.version_type }}
           loaders: neoforge
           game-versions: ${{ steps.target.outputs.game_versions }}
 
@@ -316,11 +429,19 @@ jobs:
         id: target
         run: |
           MOD_VERSION=$(grep '^mod_version=' forge/gradle.properties | cut -d= -f2)
+          # The channel follows the version string: 1.4.1-beta.1 goes out as a
+          # beta, 1.5.0-alpha.2 as an alpha, and a plain 1.4.1 as a release.
+          case "$MOD_VERSION" in
+            *-alpha*) VERSION_TYPE=alpha ;;
+            *-beta*|*-rc*|*-pre*) VERSION_TYPE=beta ;;
+            *) VERSION_TYPE=release ;;
+          esac
           MC_VERSION=$(grep '^minecraft_version=' forge/gradle.properties | cut -d= -f2)
           GAME_VERSIONS=$(grep '^game_versions=' versions/26.1.2.properties | cut -d= -f2 | tr ',' '\n')
 
           {
             echo "release_version=$MOD_VERSION+$MC_VERSION-forge"
+            echo "version_type=$VERSION_TYPE"
             echo "game_versions<<EOF"
             echo "$GAME_VERSIONS"
             echo "EOF"
@@ -330,7 +451,11 @@ jobs:
         id: jar
         run: |
           JAR=$(find forge/build/libs -maxdepth 1 -type f -name "localweather-*-forge.jar" ! -name '*-sources.jar' -print -quit)
-          test -n "$JAR" && test -f "$JAR"
+          # See the Fabric job: `test -n ... && test -f ...` never fails a step.
+          if [ -z "$JAR" ] || [ ! -f "$JAR" ]; then
+            echo "::error::No jar found in build/libs for this module."
+            exit 1
+          fi
           echo "file=$JAR" >> "$GITHUB_OUTPUT"
 
       - name: Upload jar to the GitHub Release
@@ -361,7 +486,7 @@ jobs:
           files: ${{ steps.jar.outputs.file }}
           name: Localized Weather v${{ steps.target.outputs.release_version }}
           version: ${{ steps.target.outputs.release_version }}
-          version-type: release
+          version-type: ${{ steps.target.outputs.version_type }}
           loaders: forge
           game-versions: ${{ steps.target.outputs.game_versions }}
 
@@ -385,6 +510,6 @@ jobs:
           files: ${{ steps.jar.outputs.file }}
           name: Localized Weather v${{ steps.target.outputs.release_version }}
           version: ${{ steps.target.outputs.release_version }}
-          version-type: release
+          version-type: ${{ steps.target.outputs.version_type }}
           loaders: forge
           game-versions: ${{ steps.target.outputs.game_versions }}
