@@ -33,6 +33,14 @@ public class WeatherZone {
     /** Ticks remaining before this weather changes naturally. */
     private int weatherDuration;
 
+    /**
+     * Game time at which every player left this zone's range, or -1 while
+     * someone is near it. A dormant zone is kept rather than thrown away, and
+     * is not ticked; {@link #catchUp(long)} settles the time it missed when
+     * someone comes back. See {@link ZoneRetention}.
+     */
+    private long dormantSince = -1;
+
     /** Ticks for the transition animation (20 ticks = 1 second). */
     public static final int TRANSITION_TICKS = 400; // 20 seconds
 
@@ -110,6 +118,56 @@ public class WeatherZone {
 
     public void setWeatherDuration(int ticks) {
         this.weatherDuration = ticks;
+    }
+
+    /**
+     * Advance this zone by the time it spent with nobody near it, in one step.
+     *
+     * A transition that was in flight finishes, and the elapsed time is spent
+     * against the remaining duration. If the duration ran out while the zone
+     * was dormant it is left at one tick rather than zero, so the caller's
+     * ordinary {@link #tickDuration()} is what reports the expiry — that path
+     * already picks the next weather from the zone's biomes and its upwind
+     * neighbour, which this class cannot see.
+     *
+     * Only one turnover is applied however long the zone sat empty. Weather
+     * picks do not depend on how many came before, so a zone left for a day
+     * and a zone left for an hour both come back to a fresh draw, which is
+     * what several turnovers in a row would have produced anyway.
+     */
+    public void catchUp(long elapsedTicks) {
+        if (elapsedTicks <= 0) return;
+
+        if (transitionProgress < 1.0f) {
+            float advanced = transitionProgress + elapsedTicks * TRANSITION_SPEED;
+            if (advanced >= 1.0f) {
+                transitionProgress = 1.0f;
+                currentWeather = targetWeather;
+            } else {
+                transitionProgress = advanced;
+            }
+        }
+
+        if (weatherDuration > 0) {
+            long left = weatherDuration - elapsedTicks;
+            weatherDuration = (int) Math.max(1L, left);
+        }
+    }
+
+    public boolean isDormant() {
+        return dormantSince >= 0;
+    }
+
+    public long getDormantSince() {
+        return dormantSince;
+    }
+
+    public void markDormant(long gameTime) {
+        dormantSince = gameTime;
+    }
+
+    public void wake() {
+        dormantSince = -1;
     }
 
     /**

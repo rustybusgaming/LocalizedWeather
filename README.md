@@ -43,7 +43,8 @@ The result is weather with geography. Storms have a place they *are*, a directio
 
 ## How it works
 
-Weather happens automatically. There is nothing to configure and no commands to learn.
+Weather happens automatically, with no commands to learn. The durations below
+are the defaults; a server can change them in the [config file](#configuration).
 
 | Phase | Duration | Notes |
 | ----- | -------- | ----- |
@@ -53,6 +54,10 @@ Weather happens automatically. There is nothing to configure and no commands to 
 | Wind shift | every 2.5 – 10 min | Slowly rotates; fronts follow it |
 
 A zone that turns thundery spawns a **storm cell** — a travelling core 70–130 blocks across that lives for 4–10 minutes, moves at roughly 3–6 blocks per second, and carries its rain wall and rain bands with it. When the core passes over you, the rain arrives with the wall and leaves once it has gone by.
+
+Zones remember their weather. Walk away from a storm and it keeps its place;
+come back later and it is either still raining or has blown over in the time
+you were gone — never quietly re-rolled because nobody was watching.
 
 Storms further away than the fog horizon are not culled. Their geometry is projected onto the horizon at unchanged apparent size, so a thunderstorm several zones out is still visible as a rain wall on the skyline.
 

@@ -138,8 +138,11 @@ public class WeatherZoneManager {
         Map<Long, WeatherZone> zones = WORLD_ZONES.computeIfAbsent(key, k -> new ConcurrentHashMap<>());
         Set<Long> activeZoneKeys = getActiveZoneKeys(world);
 
-        // Zones outside every player's view do not need simulation or storage.
-        zones.keySet().removeIf(zoneKey -> !activeZoneKeys.contains(zoneKey));
+        // A zone nobody is near goes dormant rather than being thrown away, and
+        // is caught up on the time it missed when someone comes back — so a
+        // storm you walk out of is still there, or has blown over, when you
+        // turn around. Only zones in range are ticked below.
+        ZoneRetention.reconcile(zones, activeZoneKeys, world.getGameTime());
 
         for (long zoneKey : activeZoneKeys) {
             WeatherZone zone = zones.get(zoneKey);
@@ -231,7 +234,11 @@ public class WeatherZoneManager {
         ResourceKey<Level> key = world.dimension();
         Map<Long, WeatherZone> zones = WORLD_ZONES.get(key);
         if (zones == null) return null;
-        return zones.get(pack(zoneX, zoneZ));
+        WeatherZone zone = zones.get(pack(zoneX, zoneZ));
+        // A dormant zone is memory, not weather: nobody is near it, so nothing —
+        // isRainingAt, the API, storm-cell spawning — should read it as live
+        // until a player brings it back into range and it is caught up.
+        return zone == null || zone.isDormant() ? null : zone;
     }
 
     private static WeatherZone createZone(ServerLevel world, int zoneX, int zoneZ) {
@@ -262,6 +269,9 @@ public class WeatherZoneManager {
         ResourceKey<Level> key = world.dimension();
         Map<Long, WeatherZone> zones = WORLD_ZONES.get(key);
         WeatherZone upwindZone = (zones != null) ? zones.get(pack(upwind[0], upwind[1])) : null;
+        // A dormant neighbour's weather is frozen at the moment everyone left,
+        // so it is not a front to inherit from.
+        if (upwindZone != null && upwindZone.isDormant()) upwindZone = null;
 
         // 45% chance to inherit upwind neighbor's weather (creates drifting fronts)
         if (upwindZone != null && RANDOM.nextFloat() < 0.45f) {

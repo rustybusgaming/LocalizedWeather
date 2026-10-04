@@ -92,6 +92,18 @@ public final class LocalWeatherConfig {
         return local;
     }
 
+    /**
+     * Replace the loaded settings with ones parsed from {@code p}, skipping the
+     * file entirely. Package-private: it exists so the parsing rules — clamps,
+     * a max below its min, malformed values — can be tested without a server or
+     * a config directory.
+     */
+    static void useForTesting(Properties p) {
+        synchronized (LocalWeatherConfig.class) {
+            instance = new LocalWeatherConfig(p);
+        }
+    }
+
     private static LocalWeatherConfig load() {
         Properties p = new Properties();
         Path path = Paths.get("config", FILE_NAME);
