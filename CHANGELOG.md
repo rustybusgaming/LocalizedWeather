@@ -2,7 +2,9 @@
 
 All notable changes to Localized Weather will be documented in this file.
 
-## [1.4.1] - 2026-10-04
+## [1.4.1-beta.1] - 2026-10-04
+
+A beta of 1.4.1, published to Modrinth and CurseForge on the beta channel.
 
 ### Added
 - Support for **Minecraft 26.3**, built with `-Pmc=26.3` and published alongside the other targets

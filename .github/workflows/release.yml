@@ -24,7 +24,15 @@ jobs:
         id: version
         run: |
           MOD_VERSION=$(grep '^mod_version=' gradle.properties | cut -d= -f2)
+          # The channel follows the version string: 1.4.1-beta.1 goes out as a
+          # beta, 1.5.0-alpha.2 as an alpha, and a plain 1.4.1 as a release.
+          case "$MOD_VERSION" in
+            *-alpha*) VERSION_TYPE=alpha ;;
+            *-beta*|*-rc*|*-pre*) VERSION_TYPE=beta ;;
+            *) VERSION_TYPE=release ;;
+          esac
           echo "mod_version=$MOD_VERSION" >> "$GITHUB_OUTPUT"
+          echo "version_type=$VERSION_TYPE" >> "$GITHUB_OUTPUT"
 
       # The v1.4.1 attempt was pushed as a tag on a months-old commit, so this
       # workflow ran that commit's copy of itself: it built 1.4.0 jars, named
@@ -67,7 +75,7 @@ jobs:
           name: Localized Weather v${{ steps.version.outputs.mod_version }}
           generate_release_notes: true
           draft: false
-          prerelease: false
+          prerelease: ${{ steps.version.outputs.version_type != 'release' }}
 
   release:
     needs: create-release
@@ -108,6 +116,13 @@ jobs:
         id: target
         run: |
           MOD_VERSION=$(grep '^mod_version=' gradle.properties | cut -d= -f2)
+          # The channel follows the version string: 1.4.1-beta.1 goes out as a
+          # beta, 1.5.0-alpha.2 as an alpha, and a plain 1.4.1 as a release.
+          case "$MOD_VERSION" in
+            *-alpha*) VERSION_TYPE=alpha ;;
+            *-beta*|*-rc*|*-pre*) VERSION_TYPE=beta ;;
+            *) VERSION_TYPE=release ;;
+          esac
           MC_VERSION=$(grep '^minecraft_version=' versions/${{ matrix.target }}.properties | cut -d= -f2)
           GAME_VERSIONS=$(grep '^game_versions=' versions/${{ matrix.target }}.properties | cut -d= -f2 | tr ',' '\n')
 
@@ -115,6 +130,7 @@ jobs:
             echo "mod_version=$MOD_VERSION"
             echo "mc_version=$MC_VERSION"
             echo "release_version=$MOD_VERSION+$MC_VERSION"
+            echo "version_type=$VERSION_TYPE"
             echo "game_versions<<EOF"
             echo "$GAME_VERSIONS"
             echo "EOF"
@@ -192,7 +208,7 @@ jobs:
           files: ${{ steps.jars.outputs.fabric }}
           name: Localized Weather v${{ steps.target.outputs.release_version }}
           version: ${{ steps.target.outputs.release_version }}
-          version-type: release
+          version-type: ${{ steps.target.outputs.version_type }}
           loaders: fabric
           game-versions: ${{ steps.target.outputs.game_versions }}
           modrinth-dependencies: |
@@ -227,7 +243,7 @@ jobs:
           files: ${{ steps.jars.outputs.fabric }}
           name: Localized Weather v${{ steps.target.outputs.release_version }}
           version: ${{ steps.target.outputs.release_version }}
-          version-type: release
+          version-type: ${{ steps.target.outputs.version_type }}
           loaders: fabric
           game-versions: ${{ steps.target.outputs.game_versions }}
           dependencies: |
@@ -287,6 +303,13 @@ jobs:
         id: target
         run: |
           MOD_VERSION=$(grep '^mod_version=' neoforge/gradle.properties | cut -d= -f2)
+          # The channel follows the version string: 1.4.1-beta.1 goes out as a
+          # beta, 1.5.0-alpha.2 as an alpha, and a plain 1.4.1 as a release.
+          case "$MOD_VERSION" in
+            *-alpha*) VERSION_TYPE=alpha ;;
+            *-beta*|*-rc*|*-pre*) VERSION_TYPE=beta ;;
+            *) VERSION_TYPE=release ;;
+          esac
           MC_VERSION=$(grep "^${{ matrix.version_property }}=" neoforge/gradle.properties | cut -d= -f2)
 
           if [ -n "${{ matrix.game_versions_from }}" ]; then
@@ -302,6 +325,7 @@ jobs:
 
           {
             echo "release_version=$MOD_VERSION+$MC_VERSION-neoforge"
+            echo "version_type=$VERSION_TYPE"
             echo "game_versions<<EOF"
             echo "$GAME_VERSIONS"
             echo "EOF"
@@ -350,7 +374,7 @@ jobs:
           files: ${{ steps.jar.outputs.file }}
           name: Localized Weather v${{ steps.target.outputs.release_version }}
           version: ${{ steps.target.outputs.release_version }}
-          version-type: release
+          version-type: ${{ steps.target.outputs.version_type }}
           loaders: neoforge
           game-versions: ${{ steps.target.outputs.game_versions }}
 
@@ -374,7 +398,7 @@ jobs:
           files: ${{ steps.jar.outputs.file }}
           name: Localized Weather v${{ steps.target.outputs.release_version }}
           version: ${{ steps.target.outputs.release_version }}
-          version-type: release
+          version-type: ${{ steps.target.outputs.version_type }}
           loaders: neoforge
           game-versions: ${{ steps.target.outputs.game_versions }}
 
@@ -405,11 +429,19 @@ jobs:
         id: target
         run: |
           MOD_VERSION=$(grep '^mod_version=' forge/gradle.properties | cut -d= -f2)
+          # The channel follows the version string: 1.4.1-beta.1 goes out as a
+          # beta, 1.5.0-alpha.2 as an alpha, and a plain 1.4.1 as a release.
+          case "$MOD_VERSION" in
+            *-alpha*) VERSION_TYPE=alpha ;;
+            *-beta*|*-rc*|*-pre*) VERSION_TYPE=beta ;;
+            *) VERSION_TYPE=release ;;
+          esac
           MC_VERSION=$(grep '^minecraft_version=' forge/gradle.properties | cut -d= -f2)
           GAME_VERSIONS=$(grep '^game_versions=' versions/26.1.2.properties | cut -d= -f2 | tr ',' '\n')
 
           {
             echo "release_version=$MOD_VERSION+$MC_VERSION-forge"
+            echo "version_type=$VERSION_TYPE"
             echo "game_versions<<EOF"
             echo "$GAME_VERSIONS"
             echo "EOF"
@@ -454,7 +486,7 @@ jobs:
           files: ${{ steps.jar.outputs.file }}
           name: Localized Weather v${{ steps.target.outputs.release_version }}
           version: ${{ steps.target.outputs.release_version }}
-          version-type: release
+          version-type: ${{ steps.target.outputs.version_type }}
           loaders: forge
           game-versions: ${{ steps.target.outputs.game_versions }}
 
@@ -478,6 +510,6 @@ jobs:
           files: ${{ steps.jar.outputs.file }}
           name: Localized Weather v${{ steps.target.outputs.release_version }}
           version: ${{ steps.target.outputs.release_version }}
-          version-type: release
+          version-type: ${{ steps.target.outputs.version_type }}
           loaders: forge
           game-versions: ${{ steps.target.outputs.game_versions }}
