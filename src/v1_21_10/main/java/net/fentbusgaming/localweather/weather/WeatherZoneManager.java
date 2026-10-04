@@ -1,5 +1,6 @@
 package net.fentbusgaming.localweather.weather;
 
+import net.fentbusgaming.localweather.config.LocalWeatherConfig;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fentbusgaming.localweather.LocalWeatherMod;
 import net.fentbusgaming.localweather.network.WeatherPackets;
@@ -31,14 +32,9 @@ public class WeatherZoneManager {
     public static final int CHUNKS_PER_ZONE = 16;
     private static final int BIOME_SAMPLES_PER_SIDE = 5;
 
-    /**
-     * Weather duration ranges: min/max ticks (20 ticks = 1 second).
-     * These mirror vanilla's weather duration but are per-zone.
-     */
-    private static final int MIN_CLEAR_TICKS  = 12000;  // ~10 min
-    private static final int MAX_CLEAR_TICKS  = 180000; // ~2.5 hours
-    private static final int MIN_WET_TICKS    = 12000;
-    private static final int MAX_WET_TICKS    = 24000;
+    // How long a zone stays dry or wet is set in config/localweather.properties
+    // and read through LocalWeatherConfig. The defaults mirror vanilla's weather
+    // durations, applied per zone rather than per world.
 
     /**
      * Zones indexed by world key → zone key (packed long of zoneX,zoneZ).
@@ -58,7 +54,6 @@ public class WeatherZoneManager {
      * its global thunder state, which this mod suppresses, so thunderstorms
      * struck nothing at all until now.
      */
-    private static final int LIGHTNING_CHANCE = 1200;
     /** Horizontal spread of strikes around the player, in blocks. */
     private static final int LIGHTNING_SPREAD = 48;
 
@@ -148,7 +143,8 @@ public class WeatherZoneManager {
             ChunkPos chunkPos = player.getChunkPos();
             WeatherZone zone = getZone(world, chunkPos.x >> 4, chunkPos.z >> 4);
             if (zone == null || zone.getCurrentWeather() != WeatherZone.WeatherType.THUNDER) continue;
-            if (RANDOM.nextInt(LIGHTNING_CHANCE) != 0) continue;
+            if (!LocalWeatherConfig.lightningEnabled()) continue;
+            if (RANDOM.nextInt(LocalWeatherConfig.lightningRarity()) != 0) continue;
 
             BlockPos around = player.getBlockPos().add(
                     RANDOM.nextInt(LIGHTNING_SPREAD * 2 + 1) - LIGHTNING_SPREAD,
@@ -319,9 +315,20 @@ public class WeatherZoneManager {
 
     private static int randomDuration(WeatherZone.WeatherType type) {
         if (type == WeatherZone.WeatherType.CLEAR) {
-            return MIN_CLEAR_TICKS + RANDOM.nextInt(MAX_CLEAR_TICKS - MIN_CLEAR_TICKS);
+            return spread(LocalWeatherConfig.clearTicksMin(), LocalWeatherConfig.clearTicksMax());
         }
-        return MIN_WET_TICKS + RANDOM.nextInt(MAX_WET_TICKS - MIN_WET_TICKS);
+        return spread(LocalWeatherConfig.wetTicksMin(), LocalWeatherConfig.wetTicksMax());
+    }
+
+    /**
+     * A tick count somewhere in [min, max).
+     *
+     * The bounds come from the config, where a max equal to its min is a
+     * legitimate way to ask for a fixed span — and {@code Random.nextInt}
+     * rejects a bound of zero, so that case returns the minimum instead.
+     */
+    private static int spread(int min, int max) {
+        return max > min ? min + RANDOM.nextInt(max - min) : min;
     }
 
     // -------------------------------------------------------------------------

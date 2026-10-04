@@ -39,6 +39,7 @@ The result is weather with geography. Storms have a place they *are*, a directio
 | 🌑 | **Directional darkening** | Sky, fog and clouds darken *toward* the approaching storm, not uniformly |
 | 🔊 | **Directional thunder** | Thunder plays from the bearing of the storm, with proximity-based volume |
 | 🧩 | **Renderer-friendly** | Drives Minecraft's own cloud renderer instead of replacing it, so mods like VulkanMod still work |
+| ⚙️ | **Configurable** | Weather lengths, lightning, storm-cell count, and whether vanilla weather runs alongside — one properties file, same on every loader |
 
 ## How it works
 
@@ -98,6 +99,41 @@ named differently between them — see [docs/loader-support.md](docs/loader-supp
 | **Forge** | ✅ [`forge/`](forge/README.md) on 26.1.x — the simulation, the full client presentation and the server-side mixins, all from the same shared code as Fabric |
 
 See [docs/loader-support.md](docs/loader-support.md) for the full breakdown.
+
+## Configuration
+
+`config/localweather.properties` is written with the defaults on first start.
+Settings are read once at startup, so a change needs a restart.
+
+```properties
+clear-minutes-min = 10          # how long a zone stays dry
+clear-minutes-max = 150
+rain-minutes-min = 10           # how long it stays wet
+rain-minutes-max = 20
+
+lightning = true                # lightning inside thunder zones
+lightning-rarity = 1200         # one-in-N per tick; larger is rarer
+
+storm-cells = true              # travelling storms, with rain wall and bands
+storm-cells-max = 4
+
+suppress-vanilla-weather = true # off lets vanilla weather run alongside zones
+```
+
+Delete the file to get the defaults back. Zone size and the sync intervals are
+not configurable — the client is built around them, so changing one would
+desync every player on the server.
+
+## Shaders
+
+Zone weather drives the level's `rainLevel`, which is what Iris gives a pack as
+`rainStrength` — so a pack's wet surfaces and puddles follow the zone you are
+standing in with no setup. The sky tint and storm fog will be overridden by the
+pack's own sky and fog. The storm clouds, hail and rain wall are drawn on a
+debug render type and have not been tested under a pack; expect them unlit.
+
+Iris covers 26.1, 26.2 and 26.3 on Fabric and NeoForge. Forge has no option —
+Oculus stopped at Minecraft 1.20.1.
 
 ## For mod developers
 

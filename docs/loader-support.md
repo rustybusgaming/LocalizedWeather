@@ -160,6 +160,59 @@ debug filled-box layer, which is a POSITION_COLOR / QUADS snippet with
 translucent blending and culling left on: it matches this geometry exactly,
 without inventing texture, lightmap or normal data.
 
+## Shaders
+
+The mod has no shader integration, and these are the parts that matter if you
+run one.
+
+**What follows your zone weather anyway.** The simulation drives the level's
+own `rainLevel` and `thunderLevel`, which is what Iris hands a pack as
+`rainStrength` and `wetness`. So a pack's wet surfaces, puddles and rain
+response track the zone you are standing in, with no work on either side —
+walk into a clear zone and it dries up. Precipitation type per zone goes
+through `Biome.getPrecipitationAt`, also the vanilla path, so rain versus snow
+per zone is what the pack draws.
+
+**What a pack will override.** The sky tint and the storm fog are applied by
+mixins on vanilla's `SkyRenderState.skyColor` and `FogData`. Packs compute
+their own sky and fog, so expect those two effects to be replaced by whatever
+the pack does.
+
+**What is untested.** The storm cloud deck, the hail and the rain wall are
+submitted on the debug filled-box render type, for the vertex-format reason in
+the section above. That is not a layer a pack has a program for, so they will
+most likely draw unlit and unfogged, and may be missing from shadow and
+reflection passes. Nobody has yet sat down with a pack and checked.
+
+Iris ships for 26.1, 26.2 and 26.3 on Fabric and NeoForge. **Forge has no
+option at all** — Oculus, the Forge port of Iris, stopped at Minecraft 1.20.1
+in December 2024.
+
+## Configuration
+
+Server-side settings live in `config/localweather.properties`, written with
+the defaults on first start. The file is read once at startup, so changes need
+a restart.
+
+| Setting | Default | What it does |
+| ------- | ------- | ------------ |
+| `clear-minutes-min` / `-max` | 10 / 150 | how long a zone stays dry before turning over |
+| `rain-minutes-min` / `-max` | 10 / 20 | how long it stays wet |
+| `lightning` | `true` | lightning inside thunder zones |
+| `lightning-rarity` | 1200 | one-in-N per eligible tick; larger is rarer |
+| `storm-cells` | `true` | travelling single-cell storms, with their rain wall and bands |
+| `storm-cells-max` | 4 | how many can exist in a world at once |
+| `suppress-vanilla-weather` | `true` | off lets vanilla run its own cycle alongside the zones |
+
+`LocalWeatherConfig` lives in `src/shared/java` and touches no Minecraft or
+loader API, so one file serves every loader and every version with no
+per-loader config plumbing, and the path resolves against the working
+directory — which is the instance or server directory on all three loaders.
+
+Zone size, the client's zone radius and the sync intervals are deliberately
+not configurable. The client caches and the renderers are built around them, so
+a server that changed one would desync every client connected to it.
+
 ## Fabric
 
 The primary supported loader. The jar uses Fabric Loader entrypoints, Fabric API
