@@ -94,7 +94,7 @@ named differently between them — see [docs/loader-support.md](docs/loader-supp
 | ------ | ------ |
 | **Fabric** | ✅ Primary supported loader |
 | **Quilt** | ✅ 1.21.x only — Quilt publishes no intermediate namespace for 26.x, so no Quilt jar is built there. Pair it with Fabric API, not Quilted Fabric API, which stops at Minecraft 1.21 |
-| **NeoForge** | ✅ [`neoforge/`](neoforge/README.md) on 26.1.x — the simulation, the full client presentation and the server-side mixins, all from the same shared code as Fabric |
+| **NeoForge** | ✅ [`neoforge/`](neoforge/README.md) on 26.1.x and 1.21.1 — the simulation, the full client presentation and the server-side mixins on both |
 | **Forge** | ✅ [`forge/`](forge/README.md) on 26.1.x — the simulation, the full client presentation and the server-side mixins, all from the same shared code as Fabric |
 
 See [docs/loader-support.md](docs/loader-support.md) for the full breakdown.

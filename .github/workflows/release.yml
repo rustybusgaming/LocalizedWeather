@@ -241,15 +241,37 @@ jobs:
   release-neoforge:
     needs: create-release
     runs-on: ubuntu-latest
-    name: Release (NeoForge)
+    strategy:
+      # One target at a time, so a failure on one Minecraft line does not
+      # cancel the other, matching the Fabric matrix above.
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        include:
+          # version_property names which key in neoforge/gradle.properties
+          # holds this target's Minecraft version, and game_versions is what
+          # the jar is published for. 1.21.1 has no file in versions/ — that
+          # directory is the Fabric line's, which does not go back that far —
+          # so its single game version is named here.
+          - target: '26.1.2'
+            version_property: 'minecraft_version'
+            game_versions_from: 'versions/26.1.2.properties'
+          - target: '1.21.1'
+            version_property: 'minecraft_version_121'
+            game_versions: '1.21.1'
+    name: Release (NeoForge ${{ matrix.target }})
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2
 
-      - name: Set up JDK
+      - name: Set up JDKs
         uses: actions/setup-java@v5
         with:
-          java-version: '25'
+          # 26.x needs Java 25 and 1.21.1 needs 21; the last listed version is
+          # the one Gradle runs on and the toolchain resolves the other.
+          java-version: |
+            21
+            25
           distribution: 'temurin'
 
       - name: Setup Gradle
@@ -259,14 +281,24 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build
-        run: ./gradlew -p neoforge build
+        run: ./gradlew -p neoforge build -Pmc=${{ matrix.target }}
 
       - name: Read target properties
         id: target
         run: |
           MOD_VERSION=$(grep '^mod_version=' neoforge/gradle.properties | cut -d= -f2)
-          MC_VERSION=$(grep '^minecraft_version=' neoforge/gradle.properties | cut -d= -f2)
-          GAME_VERSIONS=$(grep '^game_versions=' versions/26.1.2.properties | cut -d= -f2 | tr ',' '\n')
+          MC_VERSION=$(grep "^${{ matrix.version_property }}=" neoforge/gradle.properties | cut -d= -f2)
+
+          if [ -n "${{ matrix.game_versions_from }}" ]; then
+            GAME_VERSIONS=$(grep '^game_versions=' "${{ matrix.game_versions_from }}" | cut -d= -f2 | tr ',' '\n')
+          else
+            GAME_VERSIONS="${{ matrix.game_versions }}"
+          fi
+
+          if [ -z "$MC_VERSION" ] || [ -z "$GAME_VERSIONS" ]; then
+            echo "::error::Could not resolve the Minecraft version or game versions for target ${{ matrix.target }}."
+            exit 1
+          fi
 
           {
             echo "release_version=$MOD_VERSION+$MC_VERSION-neoforge"
@@ -278,7 +310,11 @@ jobs:
       - name: Find release jar
         id: jar
         run: |
-          JAR=$(find neoforge/build/libs -maxdepth 1 -type f -name "localweather-*-neoforge.jar" ! -name '*-sources.jar' -print -quit)
+          # Pinned to this target's Minecraft version rather than the first
+          # -neoforge.jar in the directory: the module builds one jar per
+          # target and both end up under the same name pattern.
+          MC_VERSION=$(grep "^${{ matrix.version_property }}=" neoforge/gradle.properties | cut -d= -f2)
+          JAR=$(find neoforge/build/libs -maxdepth 1 -type f -name "localweather-*+${MC_VERSION}-neoforge.jar" ! -name '*-sources.jar' -print -quit)
           # See the Fabric job: `test -n ... && test -f ...` never fails a step.
           if [ -z "$JAR" ] || [ ! -f "$JAR" ]; then
             echo "::error::No jar found in build/libs for this module."

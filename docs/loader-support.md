@@ -191,8 +191,28 @@ is none for 1.21.9, 1.21.10 or 1.21.11.
 
 ## NeoForge
 
-The module in [`neoforge/`](../neoforge) targets **26.1.x** and runs both halves
-of the mod: the simulation server-side and the full client presentation.
+The module in [`neoforge/`](../neoforge) builds **two targets**, and runs both
+halves of the mod on each: the simulation server-side and the full client
+presentation.
+
+| Target | Build with | Minecraft | Java | Source tree |
+| ------ | ---------- | --------- | ---- | ----------- |
+| `26.1.2` (default) | `./gradlew -p neoforge build` | 26.1, 26.1.1, 26.1.2 | 25 | `src/v26/*` + `src/neoforge/*` |
+| `1.21.1` | `./gradlew -p neoforge build -Pmc=1.21.1` | 1.21.1 | 21 | `src/v1_21_neoforge/*` |
+
+The two share nothing Minecraft-facing. 26.x is compiled against Mojang's own
+names and 1.21.1 against the obfuscated-era API that NeoForge remaps for it, so
+every Minecraft symbol is spelled differently between them — the same reason the
+Fabric build keeps separate lines. `neoforge/build.gradle` therefore picks one
+tree per target rather than merging them, and that includes the resources: each
+carries its own `neoforge.mods.toml` and mixin configs under the same names, and
+1.21.1's sit at mixin compatibility `JAVA_21` with no `FogMixin`, which 26.x
+needs and 1.21.1 has no target for.
+
+Only `src/shared/java` is common to both — `WeatherZone`, `StormCell` and
+`WindState` touch no Minecraft API at all.
+
+The rest of this section describes the 26.1.x target.
 
 Because 26.x is compiled against Mojang's names on every loader, almost none of
 it is duplicated. The module compiles `src/shared/java`, `src/v26/common/java`
@@ -222,7 +242,10 @@ platform just declares the same config.
 
 NeoForge ships as a release artifact alongside the Fabric jars, built by its own
 job in the release workflow — it is a separate Gradle build with its own jar and
-no Fabric API dependency, so it cannot ride the `-Pmc` matrix.
+no Fabric API dependency, so it cannot ride the root `-Pmc` matrix. Both of its
+targets are published, and both are built on every push and pull request: a
+module built only on its default target is a module whose other targets nothing
+compiles, which is how the 1.21.1 target first landed broken.
 
 The three server-side mixins are shared too, so localized weather is physically
 real on NeoForge rather than only drawn: vanilla's global weather is

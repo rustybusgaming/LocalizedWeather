@@ -6,8 +6,12 @@ All notable changes to Localized Weather will be documented in this file.
 
 ### Added
 - Support for **Minecraft 26.3**, built with `-Pmc=26.3` and published alongside the other targets
+- **NeoForge for Minecraft 1.21.1**, built with `./gradlew -p neoforge build -Pmc=1.21.1` and published as `localweather-<mod version>+1.21.1-neoforge.jar`. It shares only `src/shared/java` with the 26.x target — 1.21.1 is compiled against the obfuscated-era API NeoForge remaps for it, so it has its own source tree, its own `neoforge.mods.toml` and its own mixin configs
 - Forge is now a published release artifact and runs the whole mod, not just the simulation: zone weather, wind and storm cells sync to clients, and the rain gradients, sky darkening, fog, storm clouds, hail and rain wall all draw. Its jar is `localweather-<mod version>+<minecraft version>-forge.jar`
 - CI builds the NeoForge and Forge modules on every push and pull request; they are separate Gradle builds, so they run as their own matrix rather than riding `-Pmc`
+
+### Fixed
+- **The NeoForge 1.21.1 target did not build.** `neoforge/build.gradle` switched the Minecraft version, NeoForge version and Java level for `-Pmc=1.21.1` but left its source and resource directories pointing at the 26.x tree, so the target compiled 26.x code against 1.21.1 and failed outright. CI did not catch it because the module was only ever built on its default target; both targets are now in the build matrix, and both are published
 
 ### Changed
 - The 26.x client mixins that follow Mojang's render API now live in a variant directory per API era, selected by `client_variant` in the target's properties file. 26.3 changed `SkyRenderState.skyColor` from a packed ARGB `int` to a `Vector3fc`, and rewrote `CloudRenderer.render` against the new render-pass API, overloading the name — so both copies now spell out the mixin target descriptor instead of matching on the bare name. Everything else in the 26.x line stays shared
