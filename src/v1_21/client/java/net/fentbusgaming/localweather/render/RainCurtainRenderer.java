@@ -5,6 +5,7 @@ import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.fentbusgaming.localweather.network.ClientStormCellHandler;
+import net.fentbusgaming.localweather.weather.StormCellManager;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.RenderLayers;
@@ -22,10 +23,13 @@ import org.joml.Matrix4f;
  *       downwind and flaring out where it reaches the ground.</li>
  *   <li><b>Rain bands</b> — shallower arcs of precipitation trailing the core,
  *       fading out at their ends and slowly rotating around the cell.</li>
+ *   <li><b>Cloud cap</b> — the anvil over the core, drawn only once the storm
+ *       is past the reach of the zone-grid cloud deck, so a distant rain wall
+ *       is not left hanging under clear sky.</li>
  * </ul>
  *
- * Both are anchored to the cell rather than to a zone, so they travel with the
- * storm. A storm beyond the fog horizon is not culled: its geometry is scaled
+ * All three are anchored to the cell rather than to a zone, so they travel with
+ * the storm. A storm beyond the fog horizon is not culled: its geometry is scaled
  * uniformly about the camera onto the horizon instead, which keeps every angle
  * (and therefore the apparent size) intact while pulling it back inside the
  * fog envelope. A thunderstorm several zones away still shows its rain wall.
@@ -90,6 +94,43 @@ public class RainCurtainRenderer {
     private static final float MAX_DISTANCE_BOOST = 0.35f;
 
     /**
+     * Reach of the zone-grid cloud deck. {@link StormCloudRenderer} builds the
+     * deck out of the 5x5 zone grid the client caches, so it runs out a little
+     * past two zones, while cells keep syncing to
+     * {@link StormCellManager#SYNC_DISTANCE}. Past that reach a cell draws its
+     * own cloud instead, faded in between the two distances below so the deck
+     * and the cap cross over rather than stacking.
+     */
+    private static final double DECK_REACH = 560.0;
+    private static final double CAP_FULL_AT = 900.0;
+
+    /**
+     * Cells stop being sent past {@link StormCellManager#SYNC_DISTANCE}, so the
+     * storm thins out over the approach to it rather than reaching that point at
+     * full strength.
+     */
+    private static final double FAR_FADE_END = StormCellManager.SYNC_DISTANCE;
+    private static final double FAR_FADE_START = FAR_FADE_END * 0.78;
+
+    /** The cap: an anvil sitting on the cloud base and spreading as it rises. */
+    private static final float CAP_BOTTOM = WALL_TOP - 4.0f;
+    private static final float CAP_TOP = WALL_TOP + 30.0f;
+    private static final int CAP_SEGMENTS = 20;
+    private static final int CAP_STEPS = 3;
+    private static final int CAP_RINGS = 3;
+    private static final float CAP_BOTTOM_SCALE = 1.20f;
+    private static final float CAP_TOP_SCALE = 2.05f;
+    /** The anvil blows further downwind than the curtain below it leans. */
+    private static final float CAP_LEAN_SCALE = 1.4f;
+    /** How far the middle of the top domes above its rim. */
+    private static final float CAP_DOME = 7.0f;
+    private static final float CAP_ALPHA = 0.70f;
+
+    /** Anvil colour: thunder-deck grey underneath, lighter where the top catches light. */
+    private static final int CAP_BOTTOM_R = 0x2E, CAP_BOTTOM_G = 0x30, CAP_BOTTOM_B = 0x37;
+    private static final int CAP_TOP_R = 0x53, CAP_TOP_G = 0x57, CAP_TOP_B = 0x61;
+
+    /**
      * Position + colour only, which is exactly what this renderer emits.
      *
      * {@code RenderLayers.translucentMovingBlock()} is a textured block layer: its vertex format also wants
@@ -152,19 +193,31 @@ public class RainCurtainRenderer {
         float nearFade = clamp01((float) ((dist - radius * 0.25) / (radius * 0.75)));
         if (nearFade <= 0.0f) return;
 
-        float distanceBoost = 1.0f + Math.min(MAX_DISTANCE_BOOST, (float) dist * DISTANCE_BOOST_PER_BLOCK);
-        float baseAlpha = WALL_ALPHA * intensity * nearFade * distanceBoost * cell.getFade();
-        if (baseAlpha < 0.01f) return;
+        float farFade = farFade(dist);
+        if (farFade <= 0.0f) return;
 
         double heading = Math.atan2(cell.getVelZ(), cell.getVelX());
         float leanX = (float) (Math.cos(heading) * WALL_LEAN);
         float leanZ = (float) (Math.sin(heading) * WALL_LEAN);
         float cellPhase = (cell.id % 32) * 0.37f;
 
-        renderRainWall(mat, buffer, centerX, centerZ, (float) (cam.y), radius, baseAlpha,
-                leanX, leanZ, scale, time, cellPhase);
-        renderRainBands(mat, buffer, centerX, centerZ, (float) (cam.y), radius, baseAlpha,
-                leanX, leanZ, scale, time, heading, cellPhase);
+        float distanceBoost = 1.0f + Math.min(MAX_DISTANCE_BOOST, (float) dist * DISTANCE_BOOST_PER_BLOCK);
+        float baseAlpha = WALL_ALPHA * intensity * nearFade * distanceBoost * farFade * cell.getFade();
+        if (baseAlpha >= 0.01f) {
+            renderRainWall(mat, buffer, centerX, centerZ, (float) (cam.y), radius, baseAlpha,
+                    leanX, leanZ, scale, time, cellPhase);
+            renderRainBands(mat, buffer, centerX, centerZ, (float) (cam.y), radius, baseAlpha,
+                    leanX, leanZ, scale, time, heading, cellPhase);
+        }
+
+        // Past the zone grid the deck cannot reach the storm, and the wall would
+        // otherwise be left hanging on the horizon under clear sky.
+        float capFade = clamp01((float) ((dist - DECK_REACH) / (CAP_FULL_AT - DECK_REACH)));
+        float capAlpha = CAP_ALPHA * intensity * capFade * farFade * cell.getFade();
+        if (capAlpha >= 0.01f) {
+            renderCloudCap(mat, buffer, centerX, centerZ, (float) (cam.y), radius, capAlpha,
+                    leanX, leanZ, scale);
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -283,6 +336,98 @@ public class RainCurtainRenderer {
     }
 
     // -------------------------------------------------------------------------
+    // Cloud cap
+    // -------------------------------------------------------------------------
+
+    /**
+     * The storm's own cloud, built from the cell instead of from the zone grid.
+     *
+     * {@link StormCloudRenderer} draws its deck over the 5x5 zone grid the
+     * client caches, which runs out a little past two zones, while cells sync
+     * out to {@link StormCellManager#SYNC_DISTANCE}. Over the far part of that
+     * range the rain wall was the only thing left, standing on the horizon
+     * under clear sky. The cap is an anvil — a shell widening as it rises,
+     * closed by a domed top — and it takes the same horizon scaling the wall
+     * does, so the cloud and the curtain under it stay one object however far
+     * away the storm is.
+     */
+    private static void renderCloudCap(Matrix4f mat, VertexConsumer buffer,
+                                       double centerX, double centerZ, float camY,
+                                       float radius, float alpha,
+                                       float leanX, float leanZ, float scale) {
+        int alphaByte = alphaByte(alpha);
+        if (alphaByte <= 0) return;
+
+        for (int step = 0; step < CAP_STEPS; step++) {
+            float t0 = step / (float) CAP_STEPS;
+            float t1 = (step + 1) / (float) CAP_STEPS;
+
+            float y0 = (lerp(CAP_BOTTOM, CAP_TOP, t0) - camY) * scale;
+            float y1 = (lerp(CAP_BOTTOM, CAP_TOP, t1) - camY) * scale;
+            float r0 = radius * lerp(CAP_BOTTOM_SCALE, CAP_TOP_SCALE, t0);
+            float r1 = radius * lerp(CAP_BOTTOM_SCALE, CAP_TOP_SCALE, t1);
+            float lx0 = leanX * CAP_LEAN_SCALE * t0;
+            float lz0 = leanZ * CAP_LEAN_SCALE * t0;
+            float lx1 = leanX * CAP_LEAN_SCALE * t1;
+            float lz1 = leanZ * CAP_LEAN_SCALE * t1;
+
+            for (int seg = 0; seg < CAP_SEGMENTS; seg++) {
+                double angA = seg * 2.0 * Math.PI / CAP_SEGMENTS;
+                double angB = (seg + 1) * 2.0 * Math.PI / CAP_SEGMENTS;
+
+                float xA0 = (float) (centerX + Math.cos(angA) * r0 + lx0) * scale;
+                float zA0 = (float) (centerZ + Math.sin(angA) * r0 + lz0) * scale;
+                float xB0 = (float) (centerX + Math.cos(angB) * r0 + lx0) * scale;
+                float zB0 = (float) (centerZ + Math.sin(angB) * r0 + lz0) * scale;
+                float xA1 = (float) (centerX + Math.cos(angA) * r1 + lx1) * scale;
+                float zA1 = (float) (centerZ + Math.sin(angA) * r1 + lz1) * scale;
+                float xB1 = (float) (centerX + Math.cos(angB) * r1 + lx1) * scale;
+                float zB1 = (float) (centerZ + Math.sin(angB) * r1 + lz1) * scale;
+
+                emitCapQuad(mat, buffer,
+                        xA0, y0, zA0, xB0, y0, zB0,
+                        xB1, y1, zB1, xA1, y1, zA1,
+                        t0, t1, alphaByte);
+            }
+        }
+
+        // Close the top, domed rather than flat so the anvil reads as a cloud
+        // and not as a plate laid over the storm.
+        float topRadius = radius * CAP_TOP_SCALE;
+        float lxTop = leanX * CAP_LEAN_SCALE;
+        float lzTop = leanZ * CAP_LEAN_SCALE;
+        for (int ring = 0; ring < CAP_RINGS; ring++) {
+            float f0 = ring / (float) CAP_RINGS;
+            float f1 = (ring + 1) / (float) CAP_RINGS;
+
+            float r0 = topRadius * f0;
+            float r1 = topRadius * f1;
+            float y0 = (CAP_TOP + CAP_DOME * (1.0f - f0 * f0) - camY) * scale;
+            float y1 = (CAP_TOP + CAP_DOME * (1.0f - f1 * f1) - camY) * scale;
+
+            for (int seg = 0; seg < CAP_SEGMENTS; seg++) {
+                double angA = seg * 2.0 * Math.PI / CAP_SEGMENTS;
+                double angB = (seg + 1) * 2.0 * Math.PI / CAP_SEGMENTS;
+
+                float xA0 = (float) (centerX + Math.cos(angA) * r0 + lxTop) * scale;
+                float zA0 = (float) (centerZ + Math.sin(angA) * r0 + lzTop) * scale;
+                float xB0 = (float) (centerX + Math.cos(angB) * r0 + lxTop) * scale;
+                float zB0 = (float) (centerZ + Math.sin(angB) * r0 + lzTop) * scale;
+                float xA1 = (float) (centerX + Math.cos(angA) * r1 + lxTop) * scale;
+                float zA1 = (float) (centerZ + Math.sin(angA) * r1 + lzTop) * scale;
+                float xB1 = (float) (centerX + Math.cos(angB) * r1 + lxTop) * scale;
+                float zB1 = (float) (centerZ + Math.sin(angB) * r1 + lzTop) * scale;
+
+                // The top is all at the lit end of the colour ramp.
+                emitCapQuad(mat, buffer,
+                        xA0, y0, zA0, xB0, y0, zB0,
+                        xB1, y1, zB1, xA1, y1, zA1,
+                        1.0f, 1.0f, alphaByte);
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
     // Geometry helpers
     // -------------------------------------------------------------------------
 
@@ -312,6 +457,46 @@ public class RainCurtainRenderer {
         buffer.vertex(mat, xB1, y1, zB1).color(rTop, gTop, bTop, aTopB);
         buffer.vertex(mat, xB0, y0, zB0).color(rBot, gBot, bBot, aBotB);
         buffer.vertex(mat, xA0, y0, zA0).color(rBot, gBot, bBot, aBotA);
+    }
+
+    /**
+     * Emit one cap quad, twice, so the anvil reads as solid from underneath as
+     * well as from above. {@code tLow} and {@code tHigh} pick the colour along
+     * the underside-to-top ramp for the first and the second edge.
+     */
+    private static void emitCapQuad(Matrix4f mat, VertexConsumer buffer,
+                                    float x0, float y0, float z0,
+                                    float x1, float y1, float z1,
+                                    float x2, float y2, float z2,
+                                    float x3, float y3, float z3,
+                                    float tLow, float tHigh, int alpha) {
+        int rLow = (int) lerp(CAP_BOTTOM_R, CAP_TOP_R, tLow);
+        int gLow = (int) lerp(CAP_BOTTOM_G, CAP_TOP_G, tLow);
+        int bLow = (int) lerp(CAP_BOTTOM_B, CAP_TOP_B, tLow);
+        int rHigh = (int) lerp(CAP_BOTTOM_R, CAP_TOP_R, tHigh);
+        int gHigh = (int) lerp(CAP_BOTTOM_G, CAP_TOP_G, tHigh);
+        int bHigh = (int) lerp(CAP_BOTTOM_B, CAP_TOP_B, tHigh);
+
+        buffer.vertex(mat, x0, y0, z0).color(rLow, gLow, bLow, alpha);
+        buffer.vertex(mat, x1, y1, z1).color(rLow, gLow, bLow, alpha);
+        buffer.vertex(mat, x2, y2, z2).color(rHigh, gHigh, bHigh, alpha);
+        buffer.vertex(mat, x3, y3, z3).color(rHigh, gHigh, bHigh, alpha);
+
+        buffer.vertex(mat, x3, y3, z3).color(rHigh, gHigh, bHigh, alpha);
+        buffer.vertex(mat, x2, y2, z2).color(rHigh, gHigh, bHigh, alpha);
+        buffer.vertex(mat, x1, y1, z1).color(rLow, gLow, bLow, alpha);
+        buffer.vertex(mat, x0, y0, z0).color(rLow, gLow, bLow, alpha);
+    }
+
+    /**
+     * Fade over the approach to the distance cells stop being sent at. Without
+     * it a storm is at full strength right up to that point and only thins out
+     * once the server has already gone quiet about it, which reads as the storm
+     * dissolving a beat after it should have.
+     */
+    private static float farFade(double dist) {
+        if (dist <= FAR_FADE_START) return 1.0f;
+        return clamp01((float) ((FAR_FADE_END - dist) / (FAR_FADE_END - FAR_FADE_START)));
     }
 
     /**
