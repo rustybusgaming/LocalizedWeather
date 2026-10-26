@@ -55,4 +55,14 @@ public abstract class ServerWorldMixin {
     private boolean localweather$precipitationFromZone(ServerLevel level, BlockPos pos) {
         return level.isRaining() || WeatherZoneManager.isPrecipitatingAt(level, pos.getX() + 0.5, pos.getZ() + 0.5);
     }
+
+    /**
+     * Vanilla wakes every sleeper here once a night has been slept through, and
+     * then clears its own weather, which the zones keep clear already. Clear
+     * the zones around the sleepers instead, while they are still in bed.
+     */
+    @Inject(method = "wakeUpAllPlayers()V", at = @At("HEAD"))
+    private void localweather$clearWeatherAfterSleep(CallbackInfo ci) {
+        WeatherZoneManager.clearWeatherAfterSleep((ServerLevel) (Object) this);
+    }
 }

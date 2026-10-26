@@ -509,6 +509,34 @@ public class WeatherZoneManager {
         return ((int) Math.floor(blockCoord) >> 4) >> 4;
     }
 
+    /**
+     * Vanilla clears its weather when a night is slept through. The zones are
+     * the weather now, so do the same around everyone who slept: every wet zone
+     * in their view turns clear, and the storm cells over it go. Held back,
+     * like vanilla's, by the weather-cycle gamerule. Called while the sleepers
+     * are still in bed, just before vanilla wakes them.
+     */
+    public static void clearWeatherAfterSleep(ServerLevel world) {
+        if (!weatherAdvances(world)) return;
+        for (ServerPlayer player : world.players()) {
+            if (!player.isSleeping()) continue;
+            ChunkPos c = player.chunkPosition();
+            int centerX = c.x() >> 4;
+            int centerZ = c.z() >> 4;
+            for (int dx = -CLIENT_ZONE_RADIUS; dx <= CLIENT_ZONE_RADIUS; dx++) {
+                for (int dz = -CLIENT_ZONE_RADIUS; dz <= CLIENT_ZONE_RADIUS; dz++) {
+                    WeatherZone zone = getZone(world, centerX + dx, centerZ + dz);
+                    if (zone != null && zone.getTargetWeather() != WeatherZone.WeatherType.CLEAR) {
+                        WeatherZone.WeatherType clear = WeatherZone.WeatherType.CLEAR;
+                        forceWeatherAt(world, centerX + dx, centerZ + dz, clear, randomDuration(clear));
+                    }
+                }
+            }
+            StormCellManager.clearNear(world, player.getX(), player.getZ(),
+                    (CLIENT_ZONE_RADIUS + 1) * CHUNKS_PER_ZONE * 16.0);
+        }
+    }
+
     /** Zones held for a dimension, and how many of them are dormant. For {@code /localweather}. */
     public static int[] zoneCounts(ServerLevel world) {
         Map<Long, WeatherZone> zones = zonesFor(world.dimension());

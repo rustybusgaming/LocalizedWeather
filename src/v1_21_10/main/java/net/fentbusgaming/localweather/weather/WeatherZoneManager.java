@@ -2,6 +2,7 @@ package net.fentbusgaming.localweather.weather;
 
 import net.minecraft.util.WorldSavePath;
 import net.fentbusgaming.localweather.config.LocalWeatherConfig;
+import net.fabricmc.fabric.api.entity.event.v1.EntitySleepEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fentbusgaming.localweather.LocalWeatherMod;
 import net.fentbusgaming.localweather.network.WeatherPackets;
@@ -12,6 +13,7 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LightningEntity;
 import net.minecraft.entity.SpawnReason;
+import net.minecraft.util.ActionResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.Vec3d;
@@ -84,6 +86,15 @@ public class WeatherZoneManager {
 
     public static void init() {
         ServerTickEvents.END_SERVER_TICK.register(WeatherZoneManager::onServerTick);
+        // Vanilla lets you sleep through a daytime thunderstorm, because its
+        // thunder darkens the sky; zone thunder leaves the world's sky alone,
+        // so say yes for it here. Fabric API asks this both when a player gets
+        // into bed and every tick they stay there, and vanilla's monster check
+        // still runs afterwards.
+        EntitySleepEvents.ALLOW_SLEEP_TIME.register((player, sleepingPos, vanillaResult) ->
+                !vanillaResult && player.getEntityWorld() instanceof ServerWorld world
+                        && isThunderingAt(world, player.getX(), player.getZ())
+                        ? ActionResult.SUCCESS : ActionResult.PASS);
         LocalWeatherMod.LOGGER.info("[LocalWeather] WeatherZoneManager registered. Config: {}", LocalWeatherConfig.summary());
     }
 
@@ -482,6 +493,34 @@ public class WeatherZoneManager {
     /** Block coordinate to zone coordinate: block, then chunk, then zone. */
     private static int zoneOf(double blockCoord) {
         return ((int) Math.floor(blockCoord) >> 4) >> 4;
+    }
+
+    /**
+     * Vanilla clears its weather when a night is slept through. The zones are
+     * the weather now, so do the same around everyone who slept: every wet zone
+     * in their view turns clear, and the storm cells over it go. Held back,
+     * like vanilla's, by the weather-cycle gamerule. Called while the sleepers
+     * are still in bed, just before vanilla wakes them.
+     */
+    public static void clearWeatherAfterSleep(ServerWorld world) {
+        if (!weatherAdvances(world)) return;
+        for (ServerPlayerEntity player : world.getPlayers()) {
+            if (!player.isSleeping()) continue;
+            ChunkPos c = player.getChunkPos();
+            int centerX = c.x >> 4;
+            int centerZ = c.z >> 4;
+            for (int dx = -CLIENT_ZONE_RADIUS; dx <= CLIENT_ZONE_RADIUS; dx++) {
+                for (int dz = -CLIENT_ZONE_RADIUS; dz <= CLIENT_ZONE_RADIUS; dz++) {
+                    WeatherZone zone = getZone(world, centerX + dx, centerZ + dz);
+                    if (zone != null && zone.getTargetWeather() != WeatherZone.WeatherType.CLEAR) {
+                        WeatherZone.WeatherType clear = WeatherZone.WeatherType.CLEAR;
+                        forceWeatherAt(world, centerX + dx, centerZ + dz, clear, randomDuration(clear));
+                    }
+                }
+            }
+            StormCellManager.clearNear(world, player.getX(), player.getZ(),
+                    (CLIENT_ZONE_RADIUS + 1) * CHUNKS_PER_ZONE * 16.0);
+        }
     }
 
     /** Zones held for a dimension, and how many of them are dormant. For {@code /localweather}. */

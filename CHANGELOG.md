@@ -10,6 +10,11 @@ All notable changes to Localized Weather will be documented in this file.
 ### Fixed
 - **Snow never piled up and cauldrons never filled.** Vanilla lays snow and fills cauldrons only while its world-wide rain flag is up, and that flag stays down while the zones run. So a snow zone in a snowy biome left the ground bare, and a cauldron in the rain stayed empty. Both now follow the weather of the zone they are in, or a storm cell overhead. Vanilla's own rules still decide the rest: snow only settles where it is cold enough, and a cauldron in a cold biome collects powder snow
 - **Channeling tridents never called lightning.** Channeling's lightning is gated on the `weather_check` condition, which reads the world-wide thunder flag, so it never fired even in a zone thunderstorm. The condition now answers for the zone where it is checked, so Channeling works in thundery zones and under storm cells. Loot tables, advancements and datapack predicates that check the weather get the same fix
+- **You could not sleep through a thunderstorm, and sleeping did not clear the weather.** Vanilla lets you sleep in the day during a thunderstorm because its thunder darkens the world's sky, and clears its weather when the night is slept through. Zone thunder leaves that sky alone, so a player in a thunderstorm was refused a bed (or woken straight back up), and waking up left every storm where it was. Both now follow the zones. Thunder in your zone, or a storm cell overhead, lets you sleep and keeps you asleep, and vanilla's monster check still applies. Sleeping through turns every wet zone around each sleeper clear and clears the storm cells over them. That last part respects the weather-cycle gamerule, as vanilla's does. Each loader is hooked its own way:
+  - Fabric 1.21.9 and 1.21.10 use Fabric API's sleep-time event.
+  - Fabric 1.21.11 and 26.x redirect vanilla's bed-rule check.
+  - NeoForge 1.21.1 answers NeoForge's two sleep events.
+  - Forge answers Forge's sleeping-time event.
 
 ## [1.4.1-beta.1] - 2026-10-04
 

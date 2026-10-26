@@ -50,6 +50,8 @@ are the defaults; a server can change them in the [config file](#configuration).
 way the wind is blowing from and the nearest storm cell. Any player can run it.
 `/gamerule doWeatherCycle false` (`advance_weather` on 1.21.11 and 26.x) holds
 every zone's weather where it is, as it does vanilla's.
+Thunder in your zone lets you sleep through the day, as a vanilla thunderstorm
+does, and sleeping through the night clears the weather around you.
 
 | Phase | Duration | Notes |
 | ----- | -------- | ----- |
