@@ -2,6 +2,11 @@
 
 All notable changes to Localized Weather will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **A `LICENSE` file.** The mod has always been MIT — `fabric.mod.json`, both loader manifests and the README all said so — but the file itself was missing, so the README's licence link went nowhere and anyone reusing the code had no licence text to point at. It is now in the repository and packed into every jar, Fabric, NeoForge and Forge alike
+
 ## [1.4.1-beta.1] - 2026-10-04
 
 A beta of 1.4.1, published to Modrinth and CurseForge on the beta channel.
