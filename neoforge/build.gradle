@@ -22,6 +22,12 @@ base {
 
 jar {
     archiveClassifier = 'neoforge'
+
+    // MIT asks for the notice to travel with every copy, the published jar
+    // included. This build lives one level down, so the file is ../LICENSE.
+    from('../LICENSE') {
+        rename { "${it}_${project.base.archivesName.get()}" }
+    }
 }
 
 java {
