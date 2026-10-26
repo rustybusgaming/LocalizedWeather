@@ -40,11 +40,13 @@ be shared even within 1.21:
 - **1.21.9** has no world-render event in Fabric API at all. Its
   `fabric-rendering-v1` (16.0.1) ships no `WorldRenderEvents` in any package —
   it reappears as `…rendering.v1.world.WorldRenderEvents` only from the
-  16.2.x builds. So on 1.21.9 there is nothing public to hang custom world
-  geometry on, and that target ships **without the storm clouds, hail particles
-  and rain wall**. Zone weather, the rain and fog gradients, sky darkening,
-  precipitation type and directional thunder are all mixin-driven and work
-  normally there.
+  16.2.x builds. So 1.21.9 draws the storm clouds, hail particles and rain wall
+  from `WorldRendererMixin` instead, at the end of vanilla's
+  `renderBlockDamage`: a named method in the main pass that runs every frame
+  after entities, with the frame's matrix stack and the entity buffer that
+  vanilla flushes straight afterwards. That is the same spot the Forge port
+  hooks, which has no level-render event either. The renderers themselves are
+  1.21.10's, with only their entry point changed.
 
 ### Why the 1.21 and 26 lines are separate
 

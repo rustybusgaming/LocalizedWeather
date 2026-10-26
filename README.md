@@ -195,9 +195,6 @@ to install either: Gradle fetches a matching JDK on first build if your machine
 has none. Jars land in `build/libs/` as
 `localweather-<mod version>+<minecraft version>.jar`.
 
-On 1.21.9 the storm clouds, hail particles and rain wall are absent — Fabric API
-for that version exposes no world-render hook. Everything else works there.
-
 ## Credits
 
 Idea by **Mr. Random** on Discord.

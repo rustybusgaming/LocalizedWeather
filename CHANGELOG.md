@@ -6,6 +6,7 @@ All notable changes to Localized Weather will be documented in this file.
 
 ### Added
 - **A `LICENSE` file.** The mod has always been MIT — `fabric.mod.json`, both loader manifests and the README all said so — but the file itself was missing, so the README's licence link went nowhere and anyone reusing the code had no licence text to point at. It is now in the repository and packed into every jar, Fabric, NeoForge and Forge alike
+- **Storm clouds, hail and the rain wall on Minecraft 1.21.9.** They were missing on that version because Fabric API for 1.21.9 has no world-render event to draw from. They are now drawn from a mixin on vanilla's world renderer, the same approach the Forge port uses. Vanilla's cloud layer is also hidden under the storm clouds there, as on every other version
 
 ### Fixed
 - **Snow never piled up and cauldrons never filled.** Vanilla lays snow and fills cauldrons only while its world-wide rain flag is up, and that flag stays down while the zones run. So a snow zone in a snowy biome left the ground bare, and a cauldron in the rain stayed empty. Both now follow the weather of the zone they are in, or a storm cell overhead. Vanilla's own rules still decide the rest: snow only settles where it is cold enough, and a cauldron in a cold biome collects powder snow
