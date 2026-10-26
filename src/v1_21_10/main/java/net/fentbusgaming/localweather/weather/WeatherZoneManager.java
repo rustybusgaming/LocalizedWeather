@@ -459,6 +459,31 @@ public class WeatherZoneManager {
         }
     }
 
+    /**
+     * Whether anything is falling at a column: the zone has wet weather, snow
+     * included, or a storm cell's core is overhead. This answers for vanilla's
+     * own weather checks — snow layering, cauldrons, the {@code weather_check}
+     * condition — which otherwise read the one world-wide rain flag this mod
+     * keeps off.
+     */
+    public static boolean isPrecipitatingAt(ServerWorld world, double x, double z) {
+        WeatherZone zone = getZone(world, zoneOf(x), zoneOf(z));
+        if (zone != null && zone.getCurrentWeather() != WeatherZone.WeatherType.CLEAR) return true;
+        return StormCellManager.getCellAt(world, x, z) != null;
+    }
+
+    /** As {@link #isPrecipitatingAt}, for thunder: a thundery zone, or under a storm cell's core. */
+    public static boolean isThunderingAt(ServerWorld world, double x, double z) {
+        WeatherZone zone = getZone(world, zoneOf(x), zoneOf(z));
+        if (zone != null && zone.getCurrentWeather() == WeatherZone.WeatherType.THUNDER) return true;
+        return StormCellManager.getCellAt(world, x, z) != null;
+    }
+
+    /** Block coordinate to zone coordinate: block, then chunk, then zone. */
+    private static int zoneOf(double blockCoord) {
+        return ((int) Math.floor(blockCoord) >> 4) >> 4;
+    }
+
     /** Zones held for a dimension, and how many of them are dormant. For {@code /localweather}. */
     public static int[] zoneCounts(ServerWorld world) {
         Map<Long, WeatherZone> zones = zonesFor(world.getRegistryKey());
