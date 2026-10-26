@@ -7,6 +7,10 @@ All notable changes to Localized Weather will be documented in this file.
 ### Added
 - **A `LICENSE` file.** The mod has always been MIT — `fabric.mod.json`, both loader manifests and the README all said so — but the file itself was missing, so the README's licence link went nowhere and anyone reusing the code had no licence text to point at. It is now in the repository and packed into every jar, Fabric, NeoForge and Forge alike
 
+### Fixed
+- **Snow never piled up and cauldrons never filled.** Vanilla lays snow and fills cauldrons only while its world-wide rain flag is up, and that flag stays down while the zones run. So a snow zone in a snowy biome left the ground bare, and a cauldron in the rain stayed empty. Both now follow the weather of the zone they are in, or a storm cell overhead. Vanilla's own rules still decide the rest: snow only settles where it is cold enough, and a cauldron in a cold biome collects powder snow
+- **Channeling tridents never called lightning.** Channeling's lightning is gated on the `weather_check` condition, which reads the world-wide thunder flag, so it never fired even in a zone thunderstorm. The condition now answers for the zone where it is checked, so Channeling works in thundery zones and under storm cells. Loot tables, advancements and datapack predicates that check the weather get the same fix
+
 ## [1.4.1-beta.1] - 2026-10-04
 
 A beta of 1.4.1, published to Modrinth and CurseForge on the beta channel.

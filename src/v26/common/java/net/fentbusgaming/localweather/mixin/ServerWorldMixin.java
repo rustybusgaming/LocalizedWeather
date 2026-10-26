@@ -1,11 +1,14 @@
 package net.fentbusgaming.localweather.mixin;
 
 import net.fentbusgaming.localweather.config.LocalWeatherConfig;
+import net.fentbusgaming.localweather.weather.WeatherZoneManager;
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.saveddata.WeatherData;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
@@ -54,5 +57,19 @@ public abstract class ServerWorldMixin {
         }
         if (level.getRainLevel(1.0f) > 0.0f) level.setRainLevel(0.0f);
         if (level.getThunderLevel(1.0f) > 0.0f) level.setThunderLevel(0.0f);
+    }
+
+    /**
+     * Snow layering and cauldron filling. Vanilla only does either while its
+     * world-wide rain flag is up, which the zones keep down, so a snow zone
+     * never laid any snow and rain never filled a cauldron. Ask the zone at
+     * this column instead, keeping vanilla's own answer for a server that lets
+     * vanilla rain run as well. The biome rules after this call are untouched:
+     * snow still only settles where it is cold enough.
+     */
+    @Redirect(method = "tickPrecipitation(Lnet/minecraft/core/BlockPos;)V",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerLevel;isRaining()Z"))
+    private boolean localweather$precipitationFromZone(ServerLevel level, BlockPos pos) {
+        return level.isRaining() || WeatherZoneManager.isPrecipitatingAt(level, pos.getX() + 0.5, pos.getZ() + 0.5);
     }
 }

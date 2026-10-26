@@ -6,6 +6,8 @@
   "mixins": [
     "ServerWorldMixin",
     "MinecraftServerMixin",
+    "WeatherCheckMixin",
+    "LootContextAccessor",
     "WeatherCommandMixin",
     "RainAtMixin"
   ],
