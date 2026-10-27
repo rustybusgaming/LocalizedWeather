@@ -86,7 +86,7 @@ jobs:
       max-parallel: 1
       fail-fast: false
       matrix:
-        target: ['1.21.9', '1.21.10', '1.21.11', '26.1.2', '26.2', '26.3']
+        target: ['1.21.9', '1.21.10', '1.21.11', '26.1.2', '26.2', '26.3', '26.4-snapshot']
     name: Release (Minecraft ${{ matrix.target }})
     steps:
       - name: Checkout
@@ -122,6 +122,11 @@ jobs:
             *-alpha*) VERSION_TYPE=alpha ;;
             *-beta*|*-rc*|*-pre*) VERSION_TYPE=beta ;;
             *) VERSION_TYPE=release ;;
+          esac
+          # A snapshot target can break with any weekly snapshot, so its jar
+          # always goes out as an alpha, whatever the mod version says.
+          case "${{ matrix.target }}" in
+            *snapshot*) VERSION_TYPE=alpha ;;
           esac
           MC_VERSION=$(grep '^minecraft_version=' versions/${{ matrix.target }}.properties | cut -d= -f2)
           GAME_VERSIONS=$(grep '^game_versions=' versions/${{ matrix.target }}.properties | cut -d= -f2 | tr ',' '\n')
@@ -220,8 +225,12 @@ jobs:
       # normalised through the API the way the Modrinth id is. The variable is
       # used when it is numeric and the known id is used otherwise, so a wrong
       # value warns rather than dropping CurseForge from the release.
+      # Snapshot builds go to Modrinth only: Modrinth lists each snapshot as
+      # a game version, and a CurseForge upload that cannot resolve one would
+      # fail this job for nothing.
       - name: Resolve CurseForge project ID
         id: cf
+        if: ${{ !contains(matrix.target, 'snapshot') }}
         env:
           # LocalizedWeather's CurseForge project id. Public — it is printed on
           # the project page — and hardcoded so a wrong or missing variable
@@ -236,6 +245,7 @@ jobs:
           echo "id=$ID" >> "$GITHUB_OUTPUT"
 
       - name: Publish to CurseForge
+        if: ${{ !contains(matrix.target, 'snapshot') }}
         uses: Kir-Antipov/mc-publish@v3.3
         with:
           curseforge-id: ${{ steps.cf.outputs.id }}

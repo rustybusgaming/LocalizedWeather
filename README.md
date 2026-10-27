@@ -88,8 +88,8 @@ Storms further away than the fog horizon are not culled. Their geometry is proje
 
 Jars are named `localweather-<mod version>+<Minecraft version>[-loader].jar`.
 A plain name is the Fabric build; `-quilt`, `-neoforge` and `-forge` are the others.
-For example, on Minecraft 26.1.2: `localweather-1.4.1+26.1.2.jar` for Fabric,
-`localweather-1.4.1+26.1.2-neoforge.jar` for NeoForge.
+For example, on Minecraft 26.1.2: `localweather-1.4.2+26.1.2.jar` for Fabric,
+`localweather-1.4.2+26.1.2-neoforge.jar` for NeoForge.
 
 **Optional:** [Mod Menu](https://modrinth.com/mod/modmenu) for in-game mod info.
 
@@ -103,6 +103,12 @@ For example, on Minecraft 26.1.2: `localweather-1.4.1+26.1.2.jar` for Fabric,
 | 26.1, 26.1.1, 26.1.2 | `-Pmc=26.1.2` (default) | 0.155.3+26.1.2 | 25 |
 | 26.2 | `-Pmc=26.2` | 0.159.0+26.2 | 25 |
 | 26.3 | `-Pmc=26.3` | 0.161.0+26.3 | 25 |
+| 26.4 snapshots (newest: 26.4-snapshot-5) | `-Pmc=26.4-snapshot` | 0.165.0+26.4 | 25 |
+
+The snapshot target is Fabric only, needs Fabric Loader 0.20 or newer, and
+follows the newest snapshot Fabric API has a build for. A snapshot can break
+anything from one week to the next, so its jar is published to Modrinth as an
+alpha.
 
 One repository builds every target; each is a file in [`versions/`](versions).
 The 1.21.x and 26.x lines keep separate source directories because Minecraft is

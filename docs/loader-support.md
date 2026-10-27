@@ -23,6 +23,13 @@ tag/branch. The `1.3.x` line is the last release for 1.21.x.
 | `26.1.2` | `v26` | 26.1, 26.1.1, 26.1.2 | 0.155.3+26.1.2 | 25 |
 | `26.2` | `v26` | 26.2 | 0.159.0+26.2 | 25 |
 | `26.3` | `v26` | 26.3 | 0.161.0+26.3 | 25 |
+| `26.4-snapshot` | `v26` | 26.4-snapshot-5 | 0.165.0+26.4 | 25 |
+
+The snapshot target follows the newest snapshot Fabric API has a build for.
+When a new snapshot lands, bump `minecraft_version`, `fabric_api_version` and
+`game_versions` in `versions/26.4-snapshot.properties` together. It is Fabric only
+and sets `loader_version=0.20.1`, because Fabric API's 26.4 builds need loader
+0.20, while the released targets stay on the default.
 
 ### Why each 1.21.x point release needs its own line
 
@@ -126,7 +133,7 @@ file:
 | Directory | Applies to |
 | --------- | ---------- |
 | `src/v26/client26_1/java` | 26.1, 26.1.1, 26.1.2, 26.2 |
-| `src/v26/client26_3/java` | 26.3 |
+| `src/v26/client26_3/java` | 26.3, 26.4 snapshots |
 
 Each is named for the first Minecraft version whose shape it matches and covers
 every later version until the next one. Everything else in the line —

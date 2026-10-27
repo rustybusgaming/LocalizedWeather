@@ -48,6 +48,12 @@ ext {
     source_line = targetProps.getProperty('source_line')
     yarn_mappings = targetProps.getProperty('yarn_mappings')   // 1.21.x only
     client_variant = targetProps.getProperty('client_variant') // 26.x only
+    // A target can ask for a newer loader than the default, as the snapshot
+    // target does: Fabric API's 26.4 builds need loader 0.20. Released targets
+    // keep the default so players on them are not asked to update their loader.
+    if (targetProps.getProperty('loader_version')) {
+        loader_version = targetProps.getProperty('loader_version')
+    }
 }
 
 def mapped = yarn_mappings != null
