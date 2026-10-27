@@ -206,6 +206,7 @@ jobs:
           echo "id=${RESOLVED}" >> "$GITHUB_OUTPUT"
 
       - name: Publish to Modrinth
+        if: ${{ !contains(matrix.target, 'snapshot') }}
         uses: Kir-Antipov/mc-publish@v3.3
         with:
           modrinth-id: ${{ steps.modrinth.outputs.id }}
@@ -219,6 +220,61 @@ jobs:
           modrinth-dependencies: |
             P7dR8mSH(required)
             mOgUt4GM(optional)
+
+      # mc-publish does not recognise the new snapshot names (26.4-snapshot-5):
+      # it drops them from game-versions and then refuses to upload with no
+      # game version left. The 1.4.2 release failed exactly there. Modrinth
+      # itself lists every snapshot, so the snapshot jar goes straight to its
+      # API instead, with the same name, version, channel and dependencies.
+      - name: Publish snapshot to Modrinth
+        if: ${{ contains(matrix.target, 'snapshot') }}
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          PROJECT_ID: ${{ steps.modrinth.outputs.id }}
+          JAR: ${{ steps.jars.outputs.fabric }}
+          NAME: Localized Weather v${{ steps.target.outputs.release_version }}
+          VERSION: ${{ steps.target.outputs.release_version }}
+          VERSION_TYPE: ${{ steps.target.outputs.version_type }}
+          GAME_VERSIONS: ${{ steps.target.outputs.game_versions }}
+          CHANGELOG: See https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}
+        run: |
+          DATA="$RUNNER_TEMP/modrinth-version.json"
+          jq -n \
+            --arg name "$NAME" \
+            --arg version "$VERSION" \
+            --arg type "$VERSION_TYPE" \
+            --arg project "$PROJECT_ID" \
+            --arg versions "$GAME_VERSIONS" \
+            --arg changelog "$CHANGELOG" \
+            '{
+              name: $name,
+              version_number: $version,
+              version_type: $type,
+              project_id: $project,
+              changelog: $changelog,
+              game_versions: ($versions | split("\n") | map(select(length > 0))),
+              loaders: ["fabric"],
+              featured: false,
+              status: "listed",
+              dependencies: [
+                {project_id: "P7dR8mSH", dependency_type: "required"},
+                {project_id: "mOgUt4GM", dependency_type: "optional"}
+              ],
+              file_parts: ["file"],
+              primary_file: "file"
+            }' > "$DATA"
+
+          if [ "$(jq '.game_versions | length' "$DATA")" -eq 0 ]; then
+            echo "::error::No game versions for ${{ matrix.target }}."
+            exit 1
+          fi
+          cat "$DATA"
+
+          curl --fail-with-body -sS -X POST https://api.modrinth.com/v2/version \
+            -H "Authorization: $MODRINTH_TOKEN" \
+            -H "User-Agent: ${{ github.repository }} (release workflow)" \
+            -F "data=<$DATA;type=application/json" \
+            -F "file=@$JAR;type=application/java-archive"
 
       # CurseForge only accepts its numeric project id and cannot resolve a
       # slug, and there is no public endpoint to look one up, so it cannot be

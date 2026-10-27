@@ -2,6 +2,11 @@
 
 All notable changes to Localized Weather will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **The 26.4 snapshot jar failed to publish to Modrinth.** The 1.4.2 release's snapshot job stopped with "At least one game version should be specified": the upload action, mc-publish, does not recognise the new snapshot names such as `26.4-snapshot-5`, so it dropped the only game version the jar had and then refused the upload. Snapshot jars now go straight to Modrinth's own API, with the same name, version, alpha channel and dependencies; every other jar still goes through mc-publish
+
 ## [1.4.2] - 2026-10-27
 
 Everything since 1.4.1-beta.1. Published as a release on Modrinth and CurseForge; the 26.4 snapshot jar goes to Modrinth as an alpha.
