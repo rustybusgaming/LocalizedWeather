@@ -50,6 +50,8 @@ are the defaults; a server can change them in the [config file](#configuration).
 way the wind is blowing from and the nearest storm cell. Any player can run it.
 `/gamerule doWeatherCycle false` (`advance_weather` on 1.21.11 and 26.x) holds
 every zone's weather where it is, as it does vanilla's.
+Thunder in your zone lets you sleep through the day, as a vanilla thunderstorm
+does, and sleeping through the night clears the weather around you.
 
 | Phase | Duration | Notes |
 | ----- | -------- | ----- |
@@ -192,9 +194,6 @@ Needs **JDK 21** for the 1.21.x targets and **JDK 25** for 26.x. You do not have
 to install either: Gradle fetches a matching JDK on first build if your machine
 has none. Jars land in `build/libs/` as
 `localweather-<mod version>+<minecraft version>.jar`.
-
-On 1.21.9 the storm clouds, hail particles and rain wall are absent — Fabric API
-for that version exposes no world-render hook. Everything else works there.
 
 ## Credits
 

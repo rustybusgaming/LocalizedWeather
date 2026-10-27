@@ -12,12 +12,10 @@ import net.fentbusgaming.localweather.sound.WeatherSoundManager;
 public class LocalWeatherClient implements ClientModInitializer {
 
     /**
-     * No custom world geometry on 1.21.9: Fabric API's rendering module for this
-     * version exposes no world-render event to hang it on — WorldRenderEvents
-     * only appears from the 1.21.10-era builds onward. Zone weather, the rain
-     * and fog gradients, sky darkening and directional thunder all come from
-     * mixins and work normally; the storm clouds, hail particles and rain wall
-     * do not exist on this version.
+     * The storm clouds, hail and rain wall are drawn from WorldRendererMixin
+     * rather than registered here: Fabric API for 1.21.9 has no world-render
+     * event to hang them on. Everything else registers the same way as on the
+     * later 1.21.x lines.
      */
     @Override
     public void onInitializeClient() {

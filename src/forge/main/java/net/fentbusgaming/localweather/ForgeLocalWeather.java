@@ -8,8 +8,11 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.common.util.Result;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.entity.player.SleepingTimeCheckEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.loading.FMLEnvironment;
 import net.minecraftforge.network.Channel;
@@ -82,6 +85,7 @@ public final class ForgeLocalWeather {
         // the simulation advances once per server tick and not once per
         // dimension.
         TickEvent.LevelTickEvent.Post.BUS.addListener(this::onLevelTickPost);
+        SleepingTimeCheckEvent.BUS.addListener(ForgeLocalWeather::onSleepingTimeCheck);
 
         // Forge's @Mod carries no dist attribute, unlike NeoForge's, so the
         // client half is reached through an explicit check. Naming the class
@@ -89,6 +93,22 @@ public final class ForgeLocalWeather {
         // dedicated server.
         if (FMLEnvironment.dist == Dist.CLIENT) {
             ForgeLocalWeatherClient.init();
+        }
+    }
+
+    /**
+     * Vanilla lets a player sleep through a daytime thunderstorm, because its
+     * thunder darkens the sky; zone thunder leaves the world's sky alone. Forge
+     * asks this event both when a player gets into bed and every tick they stay
+     * there, so allowing it under zone thunder or a storm cell covers both.
+     * Vanilla's monster check still runs after it. Zones in the Nether and the
+     * End never thunder, so this never overrides their beds.
+     */
+    private static void onSleepingTimeCheck(SleepingTimeCheckEvent event) {
+        Player player = event.getEntity();
+        if (player.level() instanceof ServerLevel level
+                && WeatherZoneManager.isThunderingAt(level, player.getX(), player.getZ())) {
+            event.setResult(Result.ALLOW);
         }
     }
 

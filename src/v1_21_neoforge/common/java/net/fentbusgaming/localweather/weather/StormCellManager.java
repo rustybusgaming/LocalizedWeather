@@ -196,6 +196,16 @@ public final class StormCellManager {
         WORLD_CELLS.remove(worldKey);
     }
 
+    /** Drop every cell within {@code radius} blocks of a point. */
+    public static void clearNear(ServerLevel world, double x, double z, double radius) {
+        List<StormCell> cells = WORLD_CELLS.get(world.dimension());
+        if (cells == null) return;
+        double radiusSq = radius * radius;
+        synchronized (cells) {
+            cells.removeIf(cell -> cell.squaredDistanceTo(x, z) <= radiusSq);
+        }
+    }
+
     /**
      * Forget every world's storm cells. Called when a new server session starts,
      * so a world opened after another one in the same game does not inherit its
