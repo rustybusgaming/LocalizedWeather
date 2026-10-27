@@ -2,6 +2,11 @@
 
 All notable changes to Localized Weather will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **Minecraft 26.4 snapshots**, built with `-Pmc=26.4-snapshot` against 26.4-snapshot-5 and Fabric API 0.165.0+26.4. It is Fabric only: NeoForge and Forge do not build for snapshots. It needs Fabric Loader 0.20, which that Fabric API requires; a target file can now ask for a newer loader than the default, so the released targets keep 0.19.5. The 26.x code runs unchanged: every mixin target and call site it uses has the same signature in the snapshot as in 26.3. The snapshot jar is published to Modrinth only, always as an alpha, because a snapshot can break with the next one. `versions/26.4-snapshot.properties` says what to bump when a new snapshot lands
+
 ## [1.4.1-beta.2] - 2026-10-27
 
 The second beta of 1.4.1, published to Modrinth and CurseForge on the beta channel.
