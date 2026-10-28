@@ -2,7 +2,9 @@
 
 All notable changes to Localized Weather will be documented in this file.
 
-## [Unreleased]
+## [1.4.3] - 2026-10-28
+
+Adds a jar for every 26.4 snapshot so far and fixes the snapshot upload that failed in 1.4.2. The snapshot jars go to Modrinth as alphas; every other jar is unchanged from 1.4.2 apart from the version.
 
 ### Added
 - **Every 26.4 snapshot so far, 26.4-snapshot-1 through 26.4-snapshot-5**, each as its own jar built against the Fabric API made for that snapshot (0.161.1 to 0.165.0+26.4). 1.4.2 shipped only the newest. Snapshots 1 to 3 run on the default Fabric Loader; 4 and 5 need 0.20, which their Fabric API requires. The single `26.4-snapshot` target is replaced by `26.4-snapshot-1` to `26.4-snapshot-5`
