@@ -23,13 +23,19 @@ tag/branch. The `1.3.x` line is the last release for 1.21.x.
 | `26.1.2` | `v26` | 26.1, 26.1.1, 26.1.2 | 0.155.3+26.1.2 | 25 |
 | `26.2` | `v26` | 26.2 | 0.159.0+26.2 | 25 |
 | `26.3` | `v26` | 26.3 | 0.161.0+26.3 | 25 |
-| `26.4-snapshot` | `v26` | 26.4-snapshot-5 | 0.165.0+26.4 | 25 |
+| `26.4-snapshot-1` | `v26` | 26.4-snapshot-1 | 0.161.1+26.4 | 25 |
+| `26.4-snapshot-2` | `v26` | 26.4-snapshot-2 | 0.162.1+26.4 | 25 |
+| `26.4-snapshot-3` | `v26` | 26.4-snapshot-3 | 0.162.2+26.4 | 25 |
+| `26.4-snapshot-4` | `v26` | 26.4-snapshot-4 | 0.164.0+26.4 | 25 |
+| `26.4-snapshot-5` | `v26` | 26.4-snapshot-5 | 0.165.0+26.4 | 25 |
 
-The snapshot target follows the newest snapshot Fabric API has a build for.
-When a new snapshot lands, bump `minecraft_version`, `fabric_api_version` and
-`game_versions` in `versions/26.4-snapshot.properties` together. It is Fabric only
-and sets `loader_version=0.20.1`, because Fabric API's 26.4 builds need loader
-0.20, while the released targets stay on the default.
+There is one target per 26.4 snapshot, each built against the Fabric API made
+for that snapshot, because vanilla code can move between snapshots. When a new
+snapshot lands, copy the newest `versions/26.4-snapshot-N.properties`, bump its
+`minecraft_version`, `fabric_api_version` and `game_versions`, and add it to the
+target lists in `build.yml` and `release.yml`. They are Fabric only. Snapshots 4
+and 5 set `loader_version=0.20.1`, because Fabric API's builds for them need
+loader 0.20, while every other target stays on the default.
 
 ### Why each 1.21.x point release needs its own line
 

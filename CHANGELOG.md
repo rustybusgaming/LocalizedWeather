@@ -2,6 +2,16 @@
 
 All notable changes to Localized Weather will be documented in this file.
 
+## [1.4.3] - 2026-10-28
+
+Adds a jar for every 26.4 snapshot so far and fixes the snapshot upload that failed in 1.4.2. The snapshot jars go to Modrinth as alphas; every other jar is unchanged from 1.4.2 apart from the version.
+
+### Added
+- **Every 26.4 snapshot so far, 26.4-snapshot-1 through 26.4-snapshot-5**, each as its own jar built against the Fabric API made for that snapshot (0.161.1 to 0.165.0+26.4). 1.4.2 shipped only the newest. Snapshots 1 to 3 run on the default Fabric Loader; 4 and 5 need 0.20, which their Fabric API requires. The single `26.4-snapshot` target is replaced by `26.4-snapshot-1` to `26.4-snapshot-5`
+
+### Fixed
+- **The 26.4 snapshot jar failed to publish to Modrinth.** The 1.4.2 release's snapshot job stopped with "At least one game version should be specified": the upload action, mc-publish, does not recognise the new snapshot names such as `26.4-snapshot-5`, so it dropped the only game version the jar had and then refused the upload. Snapshot jars now go straight to Modrinth's own API, with the same name, version, alpha channel and dependencies; every other jar still goes through mc-publish
+
 ## [1.4.2] - 2026-10-27
 
 Everything since 1.4.1-beta.1. Published as a release on Modrinth and CurseForge; the 26.4 snapshot jar goes to Modrinth as an alpha.
